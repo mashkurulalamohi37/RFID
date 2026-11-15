@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="96dp"
+    android:height="96dp"
+    android:viewportWidth="96"
+    android:viewportHeight="96">
+
+    <!-- Outer Rounded Base Shield -->
+    <path
+        android:fillColor="#0E2442"
+        android:pathData="M48,6 C24.8,6 6,24.8 6,48 C6,71.2 24.8,90 48,90 C71.2,90 90,71.2 90,48 C90,24.8 71.2,6 48,6 Z" />
+
+    <!-- Inner Radial Glow Accent -->
+    <path
+        android:fillColor="#153660"
+        android:pathData="M48,14 C29.2,14 14,29.2 14,48 C14,66.8 29.2,82 48,82 C66.8,82 82,66.8 82,48 C82,29.2 66.8,14 48,14 Z" />
+
+    <!-- Outer RFID Wave (Left) -->
+    <path
+        android:strokeColor="#29B6F6"
+        android:strokeWidth="3.5"
+        android:strokeLineCap="round"
+        android:fillColor="#00000000"
+        android:pathData="M27,33 C20,40 20,56 27,63" />
+
+    <!-- Outer RFID Wave (Right) -->
+    <path
+        android:strokeColor="#29B6F6"
+        android:strokeWidth="3.5"
+        android:strokeLineCap="round"
+        android:fillColor="#00000000"
+        android:pathData="M69,33 C76,40 76,56 69,63" />
+
+    <!-- Inner RFID Wave (Left) -->
+    <path
+        android:strokeColor="#00E5FF"
+        android:strokeWidth="3.5"
+        android:strokeLineCap="round"
+        android:fillColor="#00000000"
+        android:pathData="M34,39 C30,44 30,52 34,57" />
+
+    <!-- Inner RFID Wave (Right) -->
+    <path
+        android:strokeColor="#00E5FF"
+        android:strokeWidth="3.5"
+        android:strokeLineCap="round"
+        android:fillColor="#00000000"
+        android:pathData="M62,39 C66,44 66,52 62,57" />
+
+    <!-- Central Roll Cylinder (Textile Fabric Roll Body) -->
+    <path
+        android:fillColor="#1E88E5"
+        android:pathData="M42,34 L54,34 C58.4,34 62,37.6 62,42 L62,54 C62,58.4 58.4,62 54,62 L42,62 C37.6,62 34,58.4 34,54 L34,42 C34,37.6 37.6,34 42,34 Z" />
+
+    <!-- Central RFID Chip Inlay / Roll Core -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M44,40 L52,40 C54.2,40 56,41.8 56,44 L56,52 C56,54.2 54.2,56 52,56 L44,56 C41.8,56 40,54.2 40,52 L40,44 C40,41.8 41.8,40 44,40 Z" />
+
+    <!-- RFID Chip Microprocessor Center -->
+    <path
+        android:fillColor="#0E2442"
+        android:pathData="M46,45 L50,45 C50.5,45 51,45.5 51,46 L51,50 C51,50.5 50.5,51 50,51 L46,51 C45.5,51 45,50.5 45,50 L45,46 C45,45.5 45.5,45 46,45 Z" />
+
+    <!-- Antenna Lead Lines (Top, Bottom, Left, Right) -->
+    <path
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="1.8"
+        android:strokeLineCap="round"
+        android:fillColor="#00000000"
+        android:pathData="M48,34 L48,40 M48,56 L48,62 M34,48 L40,48 M56,48 L62,48" />
+
+</vector>

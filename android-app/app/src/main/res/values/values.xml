@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">RollTrack</string>
+    <style name="Theme.RollTrack" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:statusBarColor">#17324D</item>
+        <item name="android:windowBackground">#F4F6F9</item>
+    </style>
+</resources>

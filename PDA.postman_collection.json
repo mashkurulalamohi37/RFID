@@ -1,0 +1,278 @@
+{
+  "info": {
+    "_postman_id": "7297b75f-a6f7-4d3a-a551-eaaa584520a5",
+    "name": "PDA",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "19491507"
+  },
+  "item": [
+    {
+      "name": "http://118.179.223.40:7007/ords/snym_erp/api/unload",
+      "request": {
+        "auth": {
+          "type": "inherit"
+        },
+        "method": "POST",
+        "header": [],
+        "body": {
+          "mode": "raw",
+          "raw": "{\r\n  \"USER_ID\": \"1\",\r\n  \"ITEMS\": [\"1123456\", \"21234\", \"31234\", \"412345\"]\r\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "http://118.179.223.40:7007/ords/snym_erp/api/unload",
+          "protocol": "http",
+          "host": [
+            "118",
+            "179",
+            "223",
+            "40"
+          ],
+          "port": "7007",
+          "path": [
+            "ords",
+            "snym_erp",
+            "api",
+            "unload"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "http://118.179.223.40:7007/ords/snym_erp/api/load",
+      "request": {
+        "auth": {
+          "type": "inherit"
+        },
+        "method": "POST",
+        "header": [],
+        "body": {
+          "mode": "raw",
+          "raw": "{\r\n  \"USER_ID\": \"1\",\r\n  \"ITEMS\": [\"1123456\", \"21234\", \"31234\", \"412345\"]\r\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "http://118.179.223.40:7007/ords/snym_erp/api/load",
+          "protocol": "http",
+          "host": [
+            "118",
+            "179",
+            "223",
+            "40"
+          ],
+          "port": "7007",
+          "path": [
+            "ords",
+            "snym_erp",
+            "api",
+            "load"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "http://118.179.223.40:7007/ords/snym_erp/api/ref-weight?USER_ID=1&ITEM=1&WEIGHT=1",
+      "request": {
+        "auth": {
+          "type": "inherit"
+        },
+        "method": "PUT",
+        "header": [],
+        "url": {
+          "raw": "http://118.179.223.40:7007/ords/snym_erp/api/ref-weight?USER_ID=1&ITEM=1&WEIGHT=1",
+          "protocol": "http",
+          "host": [
+            "118",
+            "179",
+            "223",
+            "40"
+          ],
+          "port": "7007",
+          "path": [
+            "ords",
+            "snym_erp",
+            "api",
+            "ref-weight"
+          ],
+          "query": [
+            {
+              "key": "USER_ID",
+              "value": "1",
+              "type": "text",
+              "id": 0,
+              "sortOrder": 0
+            },
+            {
+              "key": "ITEM",
+              "value": "1",
+              "type": "text",
+              "id": 1,
+              "sortOrder": 1
+            },
+            {
+              "key": "WEIGHT",
+              "value": "1",
+              "type": "text",
+              "id": 2,
+              "sortOrder": 2
+            }
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "http://118.179.223.40:7007/ords/xact_erp/api/sub-contract-issue",
+      "request": {
+        "auth": {
+          "type": "inherit"
+        },
+        "method": "POST",
+        "header": [],
+        "body": {
+          "mode": "raw",
+          "raw": "{\r\n  \"REF_ID\": \"38\",\r\n  \"USER_ID\": \"1\",\r\n  \"ITEMS\": [\"1123456\", \"21234\", \"31234\", \"412345\"]\r\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "http://118.179.223.40:7007/ords/xact_erp/api/sub-contract-issue",
+          "protocol": "http",
+          "host": [
+            "118",
+            "179",
+            "223",
+            "40"
+          ],
+          "port": "7007",
+          "path": [
+            "ords",
+            "xact_erp",
+            "api",
+            "sub-contract-issue"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "http://118.179.223.40:7007/ords/snym_erp/api/req-scan?USER_ID=1&REF_CODE_NO=BPKWL-13/IR25060017",
+      "request": {
+        "auth": {
+          "type": "inherit"
+        },
+        "method": "POST",
+        "header": [],
+        "body": {
+          "mode": "raw",
+          "raw": "",
+          "options": {
+            "raw": {
+              "language": "text"
+            }
+          }
+        },
+        "url": {
+          "raw": "http://118.179.223.40:7007/ords/snym_erp/api/req-scan?USER_ID=1&REF_CODE_NO=BPKWL-13/IR25060017",
+          "protocol": "http",
+          "host": [
+            "118",
+            "179",
+            "223",
+            "40"
+          ],
+          "port": "7007",
+          "path": [
+            "ords",
+            "snym_erp",
+            "api",
+            "req-scan"
+          ],
+          "query": [
+            {
+              "key": "USER_ID",
+              "value": "1",
+              "type": "text",
+              "id": 0,
+              "sortOrder": 0
+            },
+            {
+              "key": "REF_CODE_NO",
+              "value": "BPKWL-13/IR25060017",
+              "type": "text",
+              "id": 1,
+              "sortOrder": 1
+            }
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "http://118.179.223.40:7007/ords/snym_erp/api/pda-login?USER_NAME=Sumon&USER_PASSWORD=sumon%23%231031",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              ""
+            ],
+            "type": "text/javascript",
+            "packages": {}
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [],
+        "url": {
+          "raw": "http://118.179.223.40:7007/ords/snym_erp/api/pda-login?USER_NAME=Sumon&USER_PASSWORD=sumon%23%231031",
+          "protocol": "http",
+          "host": [
+            "118",
+            "179",
+            "223",
+            "40"
+          ],
+          "port": "7007",
+          "path": [
+            "ords",
+            "snym_erp",
+            "api",
+            "pda-login"
+          ],
+          "query": [
+            {
+              "key": "USER_NAME",
+              "value": "Sumon",
+              "type": "text",
+              "id": 0,
+              "sortOrder": 0
+            },
+            {
+              "key": "USER_PASSWORD",
+              "value": "sumon##1031",
+              "type": "text",
+              "id": 1,
+              "sortOrder": 1
+            }
+          ]
+        }
+      },
+      "response": []
+    }
+  ]
+}

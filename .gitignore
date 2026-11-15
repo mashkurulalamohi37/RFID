@@ -1,0 +1,35 @@
+# Android & Gradle
+.gradle/
+build/
+**/build/
+*.iml
+.idea/
+.kotlin/
+captures/
+.externalNativeBuild/
+.cxx/
+
+# Local & Security Configurations
+local.properties
+keystore.properties
+*.jks
+*.keystore
+
+# Crash & Execution Logs
+hs_err_pid*
+replay_pid*
+*.log
+
+# Binaries & APKs (Keep git repo lightweight; distribute APKs via GitHub Releases)
+*.apk
+*.aab
+platform-tools/
+*.zip
+*.rar
+
+# OS specific
+.DS_Store
+Thumbs.db
+
+# Large Video Attachments (sample videos)
+*.mp4

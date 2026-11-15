@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- Solid Background Canvas -->
+    <path
+        android:fillColor="#0D2040"
+        android:pathData="M0,0h108v108h-108z" />
+
+    <!-- Circular Accent Badge Layer -->
+    <path
+        android:fillColor="#153660"
+        android:pathData="M54,12 C30.8,12 12,30.8 12,54 C12,77.2 30.8,96 54,96 C77.2,96 96,77.2 96,54 C96,30.8 77.2,12 54,12 Z" />
+
+    <!-- Outer Radio Signal Arc (Left) -->
+    <path
+        android:strokeColor="#29B6F6"
+        android:strokeWidth="4"
+        android:strokeLineCap="round"
+        android:fillColor="#00000000"
+        android:pathData="M31,38 C23,46 23,62 31,70" />
+
+    <!-- Outer Radio Signal Arc (Right) -->
+    <path
+        android:strokeColor="#29B6F6"
+        android:strokeWidth="4"
+        android:strokeLineCap="round"
+        android:fillColor="#00000000"
+        android:pathData="M77,38 C85,46 85,62 77,70" />
+
+    <!-- Inner Radio Signal Arc (Left) -->
+    <path
+        android:strokeColor="#00E5FF"
+        android:strokeWidth="3.5"
+        android:strokeLineCap="round"
+        android:fillColor="#00000000"
+        android:pathData="M39,44 C34,49 34,59 39,64" />
+
+    <!-- Inner Radio Signal Arc (Right) -->
+    <path
+        android:strokeColor="#00E5FF"
+        android:strokeWidth="3.5"
+        android:strokeLineCap="round"
+        android:fillColor="#00000000"
+        android:pathData="M69,44 C74,49 74,59 69,64" />
+
+    <!-- Fabric Roll Core (Rounded Rect) -->
+    <path
+        android:fillColor="#1976D2"
+        android:pathData="M46,38 L62,38 C66.4,38 70,41.6 70,46 L70,62 C70,66.4 66.4,70 62,70 L46,70 C41.6,70 38,66.4 38,62 L38,46 C38,41.6 41.6,38 46,38 Z" />
+
+    <!-- Smart RFID Inlay (White Core) -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M48,44 L60,44 C62.2,44 64,45.8 64,48 L64,60 C64,62.2 62.2,64 60,64 L48,64 C45.8,64 44,62.2 44,60 L44,48 C44,45.8 45.8,44 48,44 Z" />
+
+    <!-- Microprocessor Chip Center -->
+    <path
+        android:fillColor="#0D2040"
+        android:pathData="M51,49 L57,49 C57.5,49 58,49.5 58,50 L58,58 C58,58.5 57.5,59 57,59 L51,59 C50.5,59 50,58.5 50,58 L50,50 C50,49.5 50.5,49 51,49 Z" />
+
+    <!-- Antenna Grid Pins -->
+    <path
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="2"
+        android:strokeLineCap="round"
+        android:fillColor="#00000000"
+        android:pathData="M54,38 L54,44 M54,64 L54,70 M38,54 L44,54 M64,54 L70,54" />
+
+</vector>
