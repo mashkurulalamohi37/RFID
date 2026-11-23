@@ -73,11 +73,7 @@ fun LoadingScreen(
                 Spacer(Modifier.height(8.dp))
             }
             summary?.let {
-                StatusCard(
-                    tone = if (it.accepted > 0) com.rfid.rolltrack.ui.components.Banner.Tone.OK else com.rfid.rolltrack.ui.components.Banner.Tone.WARN,
-                    text = it.message,
-                    onDismiss = { vm.dismissSummary() }
-                )
+                com.rfid.rolltrack.ui.components.SubmitResultCard(summary = it, onDismiss = { vm.dismissSummary() })
                 Spacer(Modifier.height(8.dp))
             }
 
@@ -93,7 +89,7 @@ fun LoadingScreen(
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Column {
+                        Column(Modifier.weight(1f)) {
                             val veh = load?.vehicleNo?.ifBlank { "Vehicle Not Set" } ?: "Vehicle Not Set"
                             Text(
                                 veh,
@@ -117,24 +113,19 @@ fun LoadingScreen(
                         )
                     }
 
+                    Spacer(Modifier.height(6.dp))
+                    Text(
+                        if (load?.vehicleNo.isNullOrBlank()) "Enter the vehicle number (or scan its QR), then hold the left trigger to read the roll tags."
+                        else "Hold the left trigger to read the roll tags.",
+                        fontSize = 13.sp,
+                        color = Palette.Muted
+                    )
                     Spacer(Modifier.height(10.dp))
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    OutlinedButton(
+                        onClick = { showEditFields = true },
+                        modifier = Modifier.fillMaxWidth()
                     ) {
-                        Button(
-                            onClick = { showRfidPrompt = true },
-                            modifier = Modifier.weight(1f),
-                            colors = ButtonDefaults.buttonColors(containerColor = Palette.Navy)
-                        ) {
-                            Text("Scan Vehicle RFID")
-                        }
-                        OutlinedButton(
-                            onClick = { showEditFields = true },
-                            modifier = Modifier.weight(1f)
-                        ) {
-                            Text("Edit Details")
-                        }
+                        Text("Vehicle & Challan")
                     }
 
                     header?.loadingRefs?.let { refs ->

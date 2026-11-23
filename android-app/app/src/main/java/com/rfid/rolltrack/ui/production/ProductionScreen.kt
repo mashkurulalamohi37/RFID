@@ -60,7 +60,6 @@ fun ProductionScreen(
     val workOrders by vm.workOrders.collectAsStateWithLifecycle()
     val editingItem by vm.editingItem.collectAsStateWithLifecycle()
 
-    var showRfidPrompt by rememberSaveable { mutableStateOf(false) }
     var showConfirmChange by rememberSaveable { mutableStateOf(false) }
     var searchQuery by rememberSaveable { mutableStateOf("") }
 
@@ -78,11 +77,7 @@ fun ProductionScreen(
                 Spacer(Modifier.height(8.dp))
             }
             summary?.let {
-                StatusCard(
-                    tone = if (it.accepted > 0) com.rfid.rolltrack.ui.components.Banner.Tone.OK else com.rfid.rolltrack.ui.components.Banner.Tone.WARN,
-                    text = it.message,
-                    onDismiss = { vm.dismissSummary() }
-                )
+                com.rfid.rolltrack.ui.components.SubmitResultCard(summary = it, onDismiss = { vm.dismissSummary() })
                 Spacer(Modifier.height(8.dp))
             }
 
@@ -94,29 +89,15 @@ fun ProductionScreen(
                     shape = RoundedCornerShape(12.dp)
                 ) {
                     Column(Modifier.padding(16.dp)) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            Button(
-                                onClick = { showRfidPrompt = true },
-                                modifier = Modifier.weight(1f),
-                                colors = ButtonDefaults.buttonColors(containerColor = Palette.Navy)
-                            ) {
-                                Text("Scan Program RFID")
-                            }
-                        }
-
-                        Spacer(Modifier.height(12.dp))
                         Text(
-                            "Select Work Order or Tap Program RFID",
+                            "Open the program",
                             fontSize = 15.sp,
                             fontWeight = FontWeight.Bold,
                             color = Palette.Navy
                         )
                         Spacer(Modifier.height(4.dp))
                         Text(
-                            "Tap the Program / Job Card RFID against the reader, or select a work order below.",
+                            "Pick a work order below or scan the program / job-card QR. Then hold the left trigger to read the roll tags.",
                             fontSize = 13.sp,
                             color = Palette.Muted
                         )
@@ -147,7 +128,7 @@ fun ProductionScreen(
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Column {
+                            Column(Modifier.weight(1f)) {
                                 Text(
                                     ctx.programNo,
                                     fontSize = 17.sp,
@@ -268,21 +249,6 @@ fun ProductionScreen(
             }
         }
     )
-
-    if (showRfidPrompt) {
-        AlertDialog(
-            onDismissRequest = { showRfidPrompt = false },
-            title = { Text("Ready to Scan RFID", fontWeight = FontWeight.Bold) },
-            text = {
-                Text("Please tap the Program or Job-Card RFID card against the tablet's NFC reader or USB reader.")
-            },
-            confirmButton = {
-                Button(onClick = { showRfidPrompt = false }) {
-                    Text("OK")
-                }
-            }
-        )
-    }
 
     editingItem?.let { item ->
         var weightInput by remember(item.id) {

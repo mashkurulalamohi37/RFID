@@ -41,6 +41,7 @@ class TraceViewModel(private val container: AppContainer) : ViewModel() {
                 _result.value = container.api.trace(userId, clean)
                 container.feedback.tagAccepted()
             } catch (e: Exception) {
+                _result.value = null // don't leave the previous roll on screen under a "not found" message
                 _banner.value = Banner(Banner.Tone.BAD, e.message ?: "Failed to trace code: $clean")
                 container.feedback.error()
             } finally {

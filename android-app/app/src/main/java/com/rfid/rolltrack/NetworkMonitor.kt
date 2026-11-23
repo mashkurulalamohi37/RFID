@@ -24,7 +24,7 @@ class NetworkMonitor(context: Context) {
                     _online.value = true
                 }
                 override fun onLost(network: Network) {
-                    _online.value = false
+                    _online.value = checkOnline()
                 }
             })
         } catch (_: Exception) {

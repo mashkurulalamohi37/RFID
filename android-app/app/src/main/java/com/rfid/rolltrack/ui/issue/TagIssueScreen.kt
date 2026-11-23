@@ -18,7 +18,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FilterChip
@@ -62,7 +61,6 @@ fun TagIssueScreen(
     val busy by vm.busy.collectAsStateWithLifecycle()
 
     var showTypeDialog by rememberSaveable { mutableStateOf(false) }
-    var showRfidPrompt by rememberSaveable { mutableStateOf(false) }
     var showConfirmNew by rememberSaveable { mutableStateOf(false) }
     var countInput by rememberSaveable { mutableStateOf("") }
 
@@ -80,11 +78,7 @@ fun TagIssueScreen(
                 Spacer(Modifier.height(8.dp))
             }
             summary?.let {
-                StatusCard(
-                    tone = if (it.accepted > 0) com.rfid.rolltrack.ui.components.Banner.Tone.OK else com.rfid.rolltrack.ui.components.Banner.Tone.WARN,
-                    text = it.message,
-                    onDismiss = { vm.dismissSummary() }
-                )
+                com.rfid.rolltrack.ui.components.SubmitResultCard(summary = it, onDismiss = { vm.dismissSummary() })
                 Spacer(Modifier.height(8.dp))
             }
 
@@ -96,38 +90,26 @@ fun TagIssueScreen(
                     shape = RoundedCornerShape(12.dp)
                 ) {
                     Column(Modifier.padding(16.dp)) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            Button(
-                                onClick = { showRfidPrompt = true },
-                                modifier = Modifier.weight(1f),
-                                colors = ButtonDefaults.buttonColors(containerColor = Palette.Navy)
-                            ) {
-                                Text("Scan request RFID")
-                            }
-                            OutlinedButton(
-                                onClick = { showTypeDialog = true },
-                                modifier = Modifier.weight(1f)
-                            ) {
-                                Text("Type request no.")
-                            }
-                        }
-
-                        Spacer(Modifier.height(14.dp))
                         Text(
-                            "Scan the request RFID",
+                            "Load the request",
                             fontSize = 16.sp,
                             fontWeight = FontWeight.Bold,
                             color = Palette.Navy
                         )
                         Spacer(Modifier.height(4.dp))
                         Text(
-                            "Tap the Request RFID card/tag on the tablet's NFC area or desktop USB reader, or type the request number.",
+                            "Scan the request QR with the PDA scanner, or type the request number. " +
+                                "Then hold the left trigger to read the roll tags.",
                             fontSize = 13.sp,
                             color = Palette.Muted
                         )
+                        Spacer(Modifier.height(14.dp))
+                        OutlinedButton(
+                            onClick = { showTypeDialog = true },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text("Type request no.")
+                        }
                     }
                 }
             } else {
@@ -192,6 +174,15 @@ fun TagIssueScreen(
                             )
                         }
 
+                        if (header?.countOnly != true) {
+                            Spacer(Modifier.height(8.dp))
+                            Text(
+                                "Hold the left trigger to read the roll tags.",
+                                fontSize = 13.sp,
+                                color = Palette.Muted
+                            )
+                        }
+
                         if (header?.countOnly == true) {
                             Spacer(Modifier.height(10.dp))
                             OutlinedTextField(
@@ -223,9 +214,17 @@ fun TagIssueScreen(
                                 horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Column {
+                                Column(Modifier.weight(1f)) {
                                     Text(item.tagId, fontWeight = FontWeight.Bold, fontSize = 15.sp)
-                                    Text(item.source, color = Palette.Muted, fontSize = 12.sp)
+                                    if (item.state == com.rfid.rolltrack.data.local.ItemState.FAILED) {
+                                        Text(
+                                            "Not saved: ${item.errorMessage ?: "rejected by ERP"}",
+                                            color = Palette.Bad,
+                                            fontSize = 12.sp
+                                        )
+                                    } else {
+                                        Text(item.source, color = Palette.Muted, fontSize = 12.sp)
+                                    }
                                 }
                                 Text(
                                     "Remove",
@@ -260,21 +259,6 @@ fun TagIssueScreen(
             }
         }
     )
-
-    if (showRfidPrompt) {
-        AlertDialog(
-            onDismissRequest = { showRfidPrompt = false },
-            title = { Text("Ready to Scan RFID", fontWeight = FontWeight.Bold) },
-            text = {
-                Text("Please tap the Request RFID tag or card against the tablet's top NFC reader or the USB desktop reader.")
-            },
-            confirmButton = {
-                Button(onClick = { showRfidPrompt = false }) {
-                    Text("OK")
-                }
-            }
-        )
-    }
 
     if (showTypeDialog) {
         var typedCode by remember { mutableStateOf("") }

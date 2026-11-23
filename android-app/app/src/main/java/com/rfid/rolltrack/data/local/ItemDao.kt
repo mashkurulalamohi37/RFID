@@ -44,4 +44,8 @@ interface ItemDao {
 
     @Query("UPDATE scan_item SET state = 'LOCAL', txnId = NULL WHERE state = 'SENDING'")
     suspend fun resetStuckSending()
+
+    /** PENDING rows whose batch is no longer in the retry queue can never be sent: make them resendable. */
+    @Query("UPDATE scan_item SET state = 'FAILED', errorMessage = 'Not sent - please resend' WHERE state = 'PENDING' AND (txnId IS NULL OR txnId NOT IN (SELECT txnId FROM pending_submit))")
+    suspend fun releaseOrphanPending()
 }

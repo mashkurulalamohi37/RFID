@@ -6,6 +6,7 @@ import com.rfid.rolltrack.data.UnloadOp
 import com.rfid.rolltrack.data.local.SessionType
 import com.rfid.rolltrack.scanner.ScanEvent
 import com.rfid.rolltrack.ui.common.ScanSessionViewModel
+import com.rfid.rolltrack.scanner.TagIdNormalizer
 import com.rfid.rolltrack.ui.components.Banner
 import kotlinx.coroutines.launch
 
@@ -18,19 +19,17 @@ class UnloadingViewModel(container: AppContainer) :
     ) {
 
     override suspend fun onTag(event: ScanEvent.Tag) {
-        val currentRef = header.value?.loadingRef
-        if (currentRef.isNullOrBlank()) {
-            // WORKFLOW 3 (Unloading): RFID scan replaces QR code scanning!
-            // Tapping a Vehicle/Gate RFID card loads the loading reference & expected manifest!
-            openLoading(event.tagId, isRfid = true)
-            return
-        }
-
-        // Loading ref is active: this is a roll tag being unloaded
+        // Every RFID scan here is a roll being unloaded (backend needs only USER_ID + ITEMS).
         addTag(event)
     }
 
     override suspend fun onCode(event: ScanEvent.Code) {
+        val open = header.value?.loadingRef
+        if (!open.isNullOrBlank()) {
+            show(Banner.Tone.WARN, "Trip $open is open. Tap 'Finish vehicle' before opening ${event.raw.trim()}.")
+            container.feedback.warn()
+            return
+        }
         openLoading(event.raw, isRfid = false)
     }
 
@@ -65,12 +64,7 @@ class UnloadingViewModel(container: AppContainer) :
     }
 
     fun submitRows() {
-        val ref = header.value?.loadingRef
-        if (ref.isNullOrBlank()) {
-            show(Banner.Tone.WARN, "Tap Vehicle RFID card or enter loading reference first")
-            container.feedback.warn()
-            return
-        }
+        val ref = header.value?.loadingRef.orEmpty() // optional; not sent to the backend
 
         val currentSendable = sendable
         if (currentSendable.isEmpty()) {

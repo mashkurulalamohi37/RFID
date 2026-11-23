@@ -74,6 +74,12 @@ abstract class ScanSessionViewModel<H>(
     open suspend fun onSessionRestored(id: Long) {}
 
     fun onScan(event: ScanEvent) {
+        com.rfid.rolltrack.data.remote.ApiLog.info(
+            "scan -> $type: " + when (event) {
+                is ScanEvent.Tag -> "ROLL TAG ${event.tagId}"
+                is ScanEvent.Code -> "CODE (not a tag) '${event.raw}'"
+            } + " session=${_sessionId.value}"
+        )
         viewModelScope.launch {
             when (event) {
                 is ScanEvent.Tag -> onTag(event)

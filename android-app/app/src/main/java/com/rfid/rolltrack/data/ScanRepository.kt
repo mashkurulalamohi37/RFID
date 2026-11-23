@@ -7,10 +7,13 @@ import com.rfid.rolltrack.data.local.ScanItemEntity
 import com.rfid.rolltrack.data.local.ScanSessionEntity
 import com.rfid.rolltrack.data.local.SessionType
 import com.rfid.rolltrack.data.remote.ApiException
+import com.rfid.rolltrack.data.remote.ApiLog
 import com.rfid.rolltrack.data.remote.BulkResult
 import com.rfid.rolltrack.data.remote.ErpApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.filterNotNull
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import java.util.UUID
@@ -18,11 +21,19 @@ import java.util.UUID
 class ScanRepository(
     private val db: AppDatabase,
     private val api: ErpApi,
-    private val getUserId: () -> String
+    private val getUserId: () -> String,
+    /** Device has a network connection. Checked before every submit. */
+    private val isOnline: () -> Boolean = { true }
 ) {
     private val json = Json { ignoreUnknownKeys = true }
+    private val retryLock = Mutex()
 
     suspend fun openSession(type: SessionType, userId: String): ScanSessionEntity {
+        // Recover rows stuck from an earlier run (app killed mid-send, or batch dropped from the queue).
+        retryLock.withLock {
+            db.itemDao().resetStuckSending()
+            db.itemDao().releaseOrphanPending()
+        }
         val existing = db.sessionDao().findOpen(type, userId)
         if (existing != null) return existing
 
@@ -70,20 +81,68 @@ class ScanRepository(
     ): SubmitSummary {
         val txnId = UUID.randomUUID().toString()
         val userId = getUserId()
+        ApiLog.info("submit ${op::class.simpleName} txn=$txnId user=$userId items=${op.itemCount}")
+        if (userId.isBlank()) {
+            return SubmitSummary(kind = SubmitSummary.Kind.ALL_REJECTED, message = "Not logged in - please sign in again", errorCode = "NO_USER")
+        }
 
         if (itemIds.isNotEmpty()) {
             db.itemDao().markSending(itemIds, ItemState.SENDING, txnId)
         }
 
-        try {
-            val result = executeOp(op, userId, txnId)
-            return handleSuccess(sessionId, op, itemIds, txnId, result)
-        } catch (e: ApiException) {
-            return handleFailure(sessionId, op, itemIds, txnId, e)
-        } catch (e: Exception) {
-            val apiEx = ApiException(code = "UNKNOWN", message = e.message ?: "Submission failed", cause = e)
-            return handleFailure(sessionId, op, itemIds, txnId, apiEx)
+        if (!isOnline()) {
+            return queue(sessionId, op, itemIds, txnId, ApiException(code = "OFFLINE", message = "No internet connection on the device"))
         }
+
+        return try {
+            val result = executeOp(op, userId, txnId)
+            handleSuccess(op, itemIds, txnId, result)
+        } catch (e: ApiException) {
+            if (e.isNetwork) queue(sessionId, op, itemIds, txnId, e) else handleRejected(itemIds, txnId, e)
+        } catch (e: Exception) {
+            ApiLog.warn("submit crashed: ${e.javaClass.simpleName}: ${e.message}")
+            handleRejected(itemIds, txnId, ApiException(code = "APP_ERROR", message = "App error: ${e.message ?: e.javaClass.simpleName}", cause = e))
+        }
+    }
+
+    /**
+     * Re-sends every queued batch. Called when the server becomes reachable again and from Diagnostics.
+     * @return human-readable outcome.
+     */
+    suspend fun retryPending(): String = retryLock.withLock {
+        val queued = db.pendingDao().byStatus("QUEUED")
+        if (queued.isEmpty()) return "Nothing pending"
+        if (getUserId().isBlank()) return "Not logged in - ${queued.size} batch(es) wait until login"
+        if (!isOnline()) return "Still offline - ${queued.size} batch(es) waiting"
+        var sent = 0
+        var rejected = 0
+        var waiting = 0
+        for (p in queued) {
+            val op = try { json.decodeFromString<SubmitOp>(p.opJson) } catch (e: Exception) {
+                ApiLog.warn("pending ${p.txnId}: cannot decode op, dropping (${e.message})")
+                db.pendingDao().delete(p.txnId); continue
+            }
+            try {
+                val r = executeOp(op, getUserId(), p.txnId)
+                db.itemDao().byTxn(p.txnId).forEach { db.itemDao().delete(it.id) }
+                db.pendingDao().delete(p.txnId)
+                ApiLog.info("pending ${p.txnId} sent: ${r.message}")
+                sent++
+            } catch (e: ApiException) {
+                if (e.isNetwork) {
+                    db.pendingDao().upsert(p.copy(attempts = p.attempts + 1, lastError = e.message, updatedAt = System.currentTimeMillis()))
+                    waiting++
+                    break // server still unreachable; stop hammering it
+                } else {
+                    db.itemDao().setStateByTxn(p.txnId, ItemState.FAILED, e.message)
+                    db.pendingDao().delete(p.txnId)
+                    ApiLog.warn("pending ${p.txnId} rejected by server: ${e.message}")
+                    rejected++
+                }
+            }
+        }
+        val left = db.pendingDao().byStatus("QUEUED").size
+        "Sent $sent, rejected $rejected, still waiting $left" + if (waiting > 0) " (server unreachable)" else ""
     }
 
     private suspend fun executeOp(op: SubmitOp, userId: String, txnId: String): BulkResult {
@@ -97,12 +156,28 @@ class ScanRepository(
     }
 
     private suspend fun handleSuccess(
-        sessionId: Long,
         op: SubmitOp,
         itemIds: List<Long>,
         txnId: String,
         result: BulkResult
     ): SubmitSummary {
+        // ERP answered but refused the batch (STATUS "E"): keep every row, marked FAILED with the reason,
+        // so the operator can see it, fix it and resubmit. Nothing is queued: retrying would be refused again.
+        if (!result.ok) {
+            if (itemIds.isNotEmpty()) {
+                db.itemDao().setStateByTxn(txnId, ItemState.FAILED, result.message)
+            }
+            return SubmitSummary(
+                kind = SubmitSummary.Kind.ALL_REJECTED,
+                message = "Rejected by ERP: ${result.message.ifBlank { "no reason given" }}",
+                accepted = 0,
+                rejected = op.itemCount,
+                details = result.details,
+                table = result.table
+            )
+        }
+
+        // Weights are keyed by roll item; tags by tag id.
         val itemsMap = result.items.associateBy { it.tagId }
         val allItems = if (itemIds.isNotEmpty()) db.itemDao().byTxn(txnId) else emptyList()
 
@@ -119,8 +194,10 @@ class ScanRepository(
                 db.itemDao().setResult(item.id, ItemState.FAILED, outcome.code, outcome.message)
             }
         }
+        if (allItems.isEmpty()) acceptedCount = op.itemCount
 
         val kind = when {
+            result.uncertain -> SubmitSummary.Kind.UNCERTAIN
             rejectedCount == 0 -> SubmitSummary.Kind.ALL_ACCEPTED
             acceptedCount == 0 -> SubmitSummary.Kind.ALL_REJECTED
             else -> SubmitSummary.Kind.PARTIAL
@@ -132,18 +209,36 @@ class ScanRepository(
             accepted = acceptedCount,
             rejected = rejectedCount,
             details = result.details,
-            table = result.table
+            table = result.table,
+            httpCode = result.httpCode,
+            raw = result.raw
         )
     }
 
-    private suspend fun handleFailure(
+    /** Server answered and said no (HTTP error, -1/-2/-3, STATUS=E). Items stay on screen as FAILED so they can be resent. */
+    private suspend fun handleRejected(itemIds: List<Long>, txnId: String, e: ApiException): SubmitSummary {
+        if (itemIds.isNotEmpty()) {
+            db.itemDao().setStateByTxn(txnId, ItemState.FAILED, e.message)
+        }
+        return SubmitSummary(
+            kind = SubmitSummary.Kind.ALL_REJECTED,
+            message = e.message ?: "Rejected by server",
+            accepted = 0,
+            rejected = itemIds.size,
+            httpCode = e.httpCode,
+            raw = e.raw.orEmpty(),
+            errorCode = e.code
+        )
+    }
+
+    /** No answer from the server (offline / timeout). Batch is saved and retried automatically. */
+    private suspend fun queue(
         sessionId: Long,
         op: SubmitOp,
         itemIds: List<Long>,
         txnId: String,
         e: ApiException
     ): SubmitSummary {
-        // Enqueue to pending_submit
         val pending = PendingSubmitEntity(
             txnId = txnId,
             sessionId = sessionId,
@@ -163,12 +258,14 @@ class ScanRepository(
         if (itemIds.isNotEmpty()) {
             db.itemDao().setStateByTxn(txnId, ItemState.PENDING, e.message)
         }
+        ApiLog.warn("queued txn=$txnId: ${e.message}")
 
         return SubmitSummary(
             kind = SubmitSummary.Kind.QUEUED,
-            message = "Offline or server unreachable. Batch queued to Pending.",
+            message = "Not sent: ${e.message}. Saved to Pending, will resend when the server is reachable.",
             accepted = 0,
-            rejected = op.itemCount
+            rejected = op.itemCount,
+            errorCode = e.code
         )
     }
 }

@@ -61,6 +61,9 @@ data class SubmitSummary(
     val rejected: Int = 0,
     val details: Map<String, String> = emptyMap(),
     val table: ResultTable? = null,
+    val httpCode: Int = 0,
+    val raw: String = "",
+    val errorCode: String? = null,
     val at: Long = System.currentTimeMillis()
 ) {
     enum class Kind {

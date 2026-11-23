@@ -8,6 +8,7 @@ import com.rfid.rolltrack.data.local.SessionType
 import com.rfid.rolltrack.data.remote.LoadHeader
 import com.rfid.rolltrack.scanner.ScanEvent
 import com.rfid.rolltrack.ui.common.ScanSessionViewModel
+import com.rfid.rolltrack.scanner.TagIdNormalizer
 import com.rfid.rolltrack.ui.components.Banner
 import kotlinx.coroutines.launch
 
@@ -20,21 +21,19 @@ class LoadingViewModel(container: AppContainer) :
     ) {
 
     override suspend fun onTag(event: ScanEvent.Tag) {
-        val currentHeader = header.value?.load
-        if (currentHeader == null || currentHeader.vehicleNo.isBlank()) {
-            // WORKFLOW 3 (Loading): Tap Vehicle RFID card to set Vehicle ID
-            setVehicleRfid(event.tagId)
-            return
+        // Every RFID scan here is a roll. Vehicle / challan are typed in via "Vehicle & Challan".
+        val added = addTag(event)
+        if (added && header.value?.load?.vehicleNo.isNullOrBlank()) {
+            show(Banner.Tone.WARN, "Enter vehicle number (Vehicle & Challan) before sending")
         }
-
-        // Vehicle is set: this is a roll tag scan
-        addTag(event)
     }
 
     override suspend fun onCode(event: ScanEvent.Code) {
         val current = header.value ?: LoadingHeader()
         if (current.load.vehicleNo.isBlank()) {
             setFields(event.raw, current.load.challanRef, current.load.supplier)
+            show(Banner.Tone.OK, "Vehicle set: ${event.raw.trim()}. Hold the left trigger to read the rolls.")
+            container.feedback.tagAccepted()
         } else {
             show(Banner.Tone.INFO, "Scanned code: ${event.raw}")
         }
@@ -55,7 +54,7 @@ class LoadingViewModel(container: AppContainer) :
     fun submitBatch() {
         val current = header.value ?: return
         if (current.load.vehicleNo.isBlank()) {
-            show(Banner.Tone.WARN, "Tap Vehicle RFID card or enter vehicle number first")
+            show(Banner.Tone.WARN, "Enter vehicle number first (Vehicle & Challan)")
             container.feedback.warn()
             return
         }

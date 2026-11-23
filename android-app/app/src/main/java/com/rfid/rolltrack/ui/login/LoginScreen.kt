@@ -162,7 +162,7 @@ fun LoginScreen(
                                 errorMsg = if (settings.demoMode) {
                                     e.message ?: "Login failed"
                                 } else {
-                                    "No connection to the ERP server (${settings.baseUrl}).\n\nPlease check factory Wi-Fi / network connection, or use Demo Mode below for testing."
+                                    "Login failed: ${e.message ?: e.javaClass.simpleName}\n\nServer: ${settings.baseUrl}\nCheck Wi-Fi, or open Settings → Diagnostics to see the API call."
                                 }
                             } finally {
                                 busy = false

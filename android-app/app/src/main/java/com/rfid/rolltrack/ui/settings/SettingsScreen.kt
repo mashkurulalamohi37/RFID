@@ -45,7 +45,13 @@ fun SettingsScreen(
     val settings by container.settings.settings.collectAsStateWithLifecycle(com.rfid.rolltrack.config.AppSettings())
     val scope = rememberCoroutineScope()
 
-    var baseUrl by rememberSaveable(settings.baseUrl) { mutableStateOf(settings.baseUrl) }
+    // What the operator is typing; null = not edited, show the saved address. Saved only on "Save address",
+    // so stored settings never rewrite the field mid-typing.
+    var editedUrl by rememberSaveable { mutableStateOf<String?>(null) }
+    var savedNote by rememberSaveable { mutableStateOf(false) }
+    val shownUrl = editedUrl ?: settings.baseUrl
+    val urlChanged = editedUrl != null && editedUrl!!.trim() != settings.baseUrl
+    val urlValid = editedUrl?.trim()?.let { it.startsWith("http://", true) || it.startsWith("https://", true) } == true
 
     Scaffold(
         topBar = { AppTopBar(container = container, title = "Settings", onBack = onBack) },
@@ -67,14 +73,39 @@ fun SettingsScreen(
                     Text("Connection & Modes", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Palette.Navy)
 
                     OutlinedTextField(
-                        value = baseUrl,
+                        value = shownUrl,
                         onValueChange = {
-                            baseUrl = it
-                            scope.launch { container.settings.updateSettings { s -> s.copy(baseUrl = it) } }
+                            editedUrl = it
+                            savedNote = false
                         },
                         label = { Text("Oracle ORDS Base URL") },
+                        singleLine = true,
                         modifier = Modifier.fillMaxWidth()
                     )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Button(
+                            onClick = {
+                                val url = editedUrl?.trim().orEmpty()
+                                if (url.isNotEmpty()) {
+                                    scope.launch {
+                                        container.settings.updateSettings { s -> s.copy(baseUrl = url) }
+                                        editedUrl = null
+                                        savedNote = true
+                                    }
+                                }
+                            },
+                            enabled = urlChanged && urlValid
+                        ) { Text("Save address") }
+                        if (savedNote) {
+                            Text("Saved. In use now.", fontSize = 13.sp, color = Palette.Ok)
+                        } else if (urlChanged && !urlValid) {
+                            Text("Must start with http:// or https://", fontSize = 13.sp, color = Palette.Bad)
+                        }
+                    }
 
                     Row(
                         modifier = Modifier.fillMaxWidth(),

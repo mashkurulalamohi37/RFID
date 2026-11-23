@@ -3,11 +3,15 @@ package com.rfid.rolltrack.ui.issue
 import androidx.lifecycle.viewModelScope
 import com.rfid.rolltrack.AppContainer
 import com.rfid.rolltrack.data.IssueOp
+import com.rfid.rolltrack.data.SubmitSummary
 import com.rfid.rolltrack.data.local.SessionType
 import com.rfid.rolltrack.scanner.ScanEvent
+import com.rfid.rolltrack.scanner.ScanSource
+import com.rfid.rolltrack.scanner.TagIdNormalizer
 import com.rfid.rolltrack.ui.common.ScanSessionViewModel
 import com.rfid.rolltrack.ui.components.Banner
 import kotlinx.coroutines.launch
+import java.util.Locale
 
 class TagIssueViewModel(container: AppContainer) :
     ScanSessionViewModel<IssueHeader>(
@@ -17,11 +21,62 @@ class TagIssueViewModel(container: AppContainer) :
         emptyHeader = { IssueHeader() }
     ) {
 
+    /** The ERP's REF_ID is a NUMBER (e.g. 38). Anything else (old demo "REQ-0002", a scanned code) is rejected by the server. */
+    private fun isErpRefId(refId: String?): Boolean = !refId.isNullOrBlank() && refId.trim().all { it.isDigit() }
+
+    override suspend fun onSessionRestored(id: Long) {
+        val req = header.value?.request ?: return
+        if (!isErpRefId(req.refId)) {
+            com.rfid.rolltrack.data.remote.ApiLog.warn("Tag Issue: dropping saved request ${req.refCode} with non-ERP REF_ID '${req.refId}'")
+            saveHeader(IssueHeader())
+            show(Banner.Tone.WARN, "Old request '${req.refCode}' was not from the ERP and was cleared. Scan the request again.")
+            return
+        }
+        // A request restored from an earlier session may be out of date: refresh its counts.
+        refreshRequest()
+    }
+
     override suspend fun onTag(event: ScanEvent.Tag) {
+        // A roll tag never identifies the request: req-scan expects the REQ_NO business reference.
+        acceptRollTags(listOf(event.tagId), event.source)
+    }
+
+    override suspend fun onCode(event: ScanEvent.Code) {
+        val reads = TagIdNormalizer.splitReads(event.raw)
+        if (reads.isEmpty()) return
+
+        // UHF trigger: the Seuic UHF service broadcasts one or more EPCs, one per line.
+        if (reads.all { TagIdNormalizer.isEpc(it) }) {
+            acceptRollTags(reads.map { it.uppercase(Locale.ROOT) }, event.source)
+            return
+        }
+
+        if (reads.size > 1) {
+            show(Banner.Tone.WARN, "Unrecognised scan (${reads.size} values). Scan one request QR at a time.")
+            container.feedback.warn()
+            return
+        }
+
+        val code = reads.first()
+        val open = header.value?.request
+        if (open != null) {
+            show(Banner.Tone.WARN, "Request ${open.refCode} is open. Tap 'New request' before loading $code.")
+            container.feedback.warn()
+            return
+        }
+
+        // Request QR via the PDA barcode scanner, or a typed request number.
+        loadRequest(code, isRfid = false)
+    }
+
+    private suspend fun acceptRollTags(epcs: List<String>, source: ScanSource) {
+        val unique = epcs.distinct()
         val req = header.value?.request
         if (req == null) {
-            // Replaced QR code scan with RFID scan: tapping an RFID tag loads the request
-            loadRequest(event.tagId, isRfid = true)
+            val first = TagIdNormalizer.short(unique.first())
+            val what = if (unique.size == 1) "Roll tag read ($first)" else "${unique.size} roll tags read ($first, ...)"
+            show(Banner.Tone.WARN, "$what. Load the request first: scan the request QR or type the request no.")
+            container.feedback.warn()
             return
         }
 
@@ -31,24 +86,43 @@ class TagIssueViewModel(container: AppContainer) :
             return
         }
 
-        val currentCount = items.value.size
-        if (currentCount >= req.effectiveBalance) {
+        val existing = items.value.map { it.tagId }.toSet()
+        val fresh = unique.filter { it !in existing }
+        if (fresh.isEmpty()) {
+            container.feedback.duplicate()
+            show(Banner.Tone.INFO, "Already scanned: ${unique.joinToString { TagIdNormalizer.short(it) }}")
+            return
+        }
+
+        val remaining = req.effectiveBalance - items.value.size
+        if (remaining <= 0) {
             show(Banner.Tone.BAD, "Balance reached (${req.effectiveBalance}). No more tags for this request.")
             container.feedback.error()
             return
         }
 
-        addTag(event)
-    }
+        val toAdd = fresh.take(remaining)
+        var added = 0
+        for (tagId in toAdd) {
+            if (addTag(ScanEvent.Tag(tagId, source))) added++
+        }
 
-    override suspend fun onCode(event: ScanEvent.Code) {
-        // Also allow manual typing or barcode entry of request ref
-        loadRequest(event.raw, isRfid = false)
+        val skippedDup = unique.size - fresh.size
+        val overBalance = fresh.size - toAdd.size
+        when {
+            overBalance > 0 -> {
+                show(Banner.Tone.BAD, "Added $added. $overBalance more ignored: balance reached (${req.effectiveBalance}).")
+                container.feedback.error()
+            }
+            skippedDup > 0 -> show(Banner.Tone.INFO, "Added $added, $skippedDup already scanned.")
+            added > 1 -> show(Banner.Tone.OK, "Added $added roll tags.")
+        }
     }
 
     fun loadRequest(code: String, isRfid: Boolean = false) {
         val currentSendable = sendable
-        if (currentSendable.isNotEmpty()) {
+        // Only block when tags already belong to a loaded request; leftover tags with no request just carry over.
+        if (currentSendable.isNotEmpty() && header.value?.request != null) {
             show(Banner.Tone.WARN, "Submit or clear the ${currentSendable.size} scanned tags before opening another request")
             container.feedback.warn()
             return
@@ -72,13 +146,48 @@ class TagIssueViewModel(container: AppContainer) :
         }
     }
 
+    /**
+     * After the server accepts a batch, ask it again for the request's counts so Required / Issued / Balance
+     * always come from the ERP (never counted up on the device). A failed refresh keeps the old numbers.
+     */
+    override suspend fun afterSubmit(result: SubmitSummary) {
+        if (result.kind != SubmitSummary.Kind.ALL_ACCEPTED &&
+            result.kind != SubmitSummary.Kind.PARTIAL &&
+            result.kind != SubmitSummary.Kind.UNCERTAIN
+        ) return
+        refreshRequest()
+    }
+
+    private suspend fun refreshRequest() {
+        val current = header.value ?: return
+        val req = current.request ?: return
+        try {
+            val userId = container.settings.session.value.userId.ifBlank { "1" }
+            val fresh = container.api.lookupRequest(userId, req.refCode)
+            saveHeader(current.copy(request = fresh))
+            com.rfid.rolltrack.data.remote.ApiLog.info(
+                "Tag Issue: refreshed ${fresh.refCode} required=${fresh.required} issued=${fresh.issued} balance=${fresh.effectiveBalance}"
+            )
+        } catch (e: Exception) {
+            com.rfid.rolltrack.data.remote.ApiLog.warn("Tag Issue: could not refresh request counts: ${e.message}")
+        }
+    }
+
     fun setCountOnly(enabled: Boolean) {
         val current = header.value ?: IssueHeader()
         saveHeader(current.copy(countOnly = enabled))
     }
 
+    private fun refIdOk(refId: String): Boolean {
+        if (isErpRefId(refId)) return true
+        show(Banner.Tone.BAD, "This request has no ERP REF_ID ('$refId'). Tap New request and scan the request again.")
+        container.feedback.error()
+        return false
+    }
+
     fun submitTags() {
         val req = header.value?.request ?: return
+        if (!refIdOk(req.refId)) return
         val currentSendable = sendable
         if (currentSendable.isEmpty()) {
             show(Banner.Tone.WARN, "No tags scanned yet")
@@ -97,6 +206,7 @@ class TagIssueViewModel(container: AppContainer) :
 
     fun submitCount(count: Int) {
         val req = header.value?.request ?: return
+        if (!refIdOk(req.refId)) return
         if (count <= 0) {
             show(Banner.Tone.WARN, "Enter how many tags are issued")
             container.feedback.warn()

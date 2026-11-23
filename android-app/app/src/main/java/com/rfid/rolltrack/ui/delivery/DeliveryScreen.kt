@@ -65,11 +65,7 @@ fun DeliveryScreen(
                 Spacer(Modifier.height(8.dp))
             }
             summary?.let {
-                StatusCard(
-                    tone = if (it.accepted > 0) com.rfid.rolltrack.ui.components.Banner.Tone.OK else com.rfid.rolltrack.ui.components.Banner.Tone.WARN,
-                    text = it.message,
-                    onDismiss = { vm.dismissSummary() }
-                )
+                com.rfid.rolltrack.ui.components.SubmitResultCard(summary = it, onDismiss = { vm.dismissSummary() })
                 Spacer(Modifier.height(8.dp))
             }
 
@@ -100,13 +96,36 @@ fun DeliveryScreen(
 
                     Spacer(Modifier.height(10.dp))
                     val tube = header?.tubeTag
-                    val tubeLabel = if (tube.isNullOrBlank()) "Tap Tube RFID tag to assign" else "Tube RFID: $tube"
+                    val tubeLabel = if (tube.isNullOrBlank()) "Scan the tube QR or type its code" else "Tube: $tube"
                     Text(
                         tubeLabel,
                         fontSize = 14.sp,
                         fontWeight = FontWeight.Bold,
                         color = if (tube.isNullOrBlank()) Palette.Warn else Palette.Ok
                     )
+                    if (tube.isNullOrBlank()) {
+                        Spacer(Modifier.height(8.dp))
+                        var tubeInput by rememberSaveable { mutableStateOf("") }
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            OutlinedTextField(
+                                value = tubeInput,
+                                onValueChange = { tubeInput = it },
+                                label = { Text("Tube code") },
+                                singleLine = true,
+                                modifier = Modifier.weight(1f)
+                            )
+                            Button(onClick = { vm.setTube(tubeInput) }) { Text("Set") }
+                        }
+                    } else {
+                        Text(
+                            "Hold the left trigger to read the rolls going into this tube.",
+                            fontSize = 13.sp,
+                            color = Palette.Muted
+                        )
+                    }
                 }
             }
         },

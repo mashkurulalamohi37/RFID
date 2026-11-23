@@ -5,6 +5,7 @@ import com.rfid.rolltrack.data.DeliveryOp
 import com.rfid.rolltrack.data.local.SessionType
 import com.rfid.rolltrack.scanner.ScanEvent
 import com.rfid.rolltrack.ui.common.ScanSessionViewModel
+import com.rfid.rolltrack.scanner.TagIdNormalizer
 import com.rfid.rolltrack.ui.components.Banner
 
 class DeliveryViewModel(container: AppContainer) :
@@ -18,7 +19,9 @@ class DeliveryViewModel(container: AppContainer) :
     override suspend fun onTag(event: ScanEvent.Tag) {
         val current = header.value ?: DeliveryHeader()
         if (current.tubeTag.isBlank()) {
-            setTube(event.tagId)
+            // A roll tag never becomes the tube: scan the tube QR or type its code first.
+            show(Banner.Tone.WARN, "Roll tag read (${TagIdNormalizer.short(event.tagId)}). Scan the tube QR or type the tube code first.")
+            container.feedback.warn()
             return
         }
         addTag(event)
@@ -28,10 +31,17 @@ class DeliveryViewModel(container: AppContainer) :
         setTube(event.raw)
     }
 
-    fun setTube(tagId: String) {
+    fun setTube(code: String) {
+        val clean = code.trim()
+        if (clean.isBlank()) return
         val current = header.value ?: DeliveryHeader()
-        saveHeader(current.copy(tubeTag = tagId))
-        show(Banner.Tone.OK, "Tube tag assigned via RFID: $tagId")
+        if (current.tubeTag.isNotBlank() && current.tubeTag != clean && sendable.isNotEmpty()) {
+            show(Banner.Tone.WARN, "Tube ${current.tubeTag} has ${sendable.size} roll(s). Send them or tap 'Next tube' first.")
+            container.feedback.warn()
+            return
+        }
+        saveHeader(current.copy(tubeTag = clean))
+        show(Banner.Tone.OK, "Tube set: $clean")
         container.feedback.tagAccepted()
     }
 

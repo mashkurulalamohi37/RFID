@@ -59,6 +59,7 @@ fun AppTopBar(
     actions: @Composable RowScope.() -> Unit = {}
 ) {
     val online by container.network.online.collectAsStateWithLifecycle()
+    val health by container.serverHealth.state.collectAsStateWithLifecycle()
     val pendingCount by container.scanRepository.observePendingCount().collectAsStateWithLifecycle(0)
     val settings by container.settings.settings.collectAsStateWithLifecycle(com.rfid.rolltrack.config.AppSettings())
 
@@ -93,8 +94,14 @@ fun AppTopBar(
                 Chip(text = "$pendingCount unsent", color = Palette.Warn)
                 Spacer(Modifier.width(6.dp))
             }
-            val onlineColor = if (online && !settings.simulateOffline) Palette.Ok else Palette.Bad
-            val onlineText = if (online && !settings.simulateOffline) "Online" else "Offline"
+            val (onlineText, onlineColor) = when {
+                settings.demoMode -> "Demo" to Palette.Warn
+                settings.simulateOffline -> "Offline (sim)" to Palette.Bad
+                !online || health is com.rfid.rolltrack.ServerHealth.State.NoInternet -> "No internet" to Palette.Bad
+                health is com.rfid.rolltrack.ServerHealth.State.Down -> "Server down" to Palette.Bad
+                health is com.rfid.rolltrack.ServerHealth.State.Up -> "Server OK" to Palette.Ok
+                else -> "Checking…" to Palette.Warn
+            }
             Chip(text = onlineText, color = onlineColor)
             Spacer(Modifier.width(8.dp))
             actions()

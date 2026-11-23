@@ -78,7 +78,20 @@ object TagIdNormalizer {
         return if (canonical.length <= 8) canonical else canonical.take(4) + ".." + canonical.takeLast(4)
     }
 
-    private fun isHexUidLength(len: Int): Boolean = len == 8 || len == 14 || len == 20
+    /**
+     * UHF Gen2 EPC as sent by the Seuic UHF service: 96-bit (24 hex) or 128-bit (32 hex), no separators.
+     * Kept separate from [fromRaw] so other workflows' classification is unchanged.
+     */
+    private val epcPattern = Regex("^(?:[0-9A-F]{24}|[0-9A-F]{32})$")
+
+    fun isEpc(value: String): Boolean = epcPattern.matches(value.trim().uppercase(Locale.ROOT))
+
+    /** One scanner payload can hold several reads (the UHF service joins EPCs with line breaks). */
+    fun splitReads(raw: String): List<String> =
+        raw.split('\r', '\n').map { it.trim() }.filter { it.isNotEmpty() }
+
+    // 8/14/20 = NFC UIDs; 24/32 = UHF EPC-96/EPC-128 roll tags from the PDA reader
+    private fun isHexUidLength(len: Int): Boolean = len == 8 || len == 14 || len == 20 || len == 24 || len == 32
 
     private fun decimalToHex(value: BigInteger, hexLength: Int, order: ByteOrder): String {
         val hex = value.toString(16).uppercase(Locale.ROOT).padStart(hexLength, '0')

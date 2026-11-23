@@ -6,8 +6,13 @@ class ApiException(
     val code: String? = null,
     message: String,
     val httpCode: Int = 0,
-    cause: Throwable? = null
-) : Exception(message, cause)
+    cause: Throwable? = null,
+    /** Raw server response body, when there was one. */
+    val raw: String? = null
+) : Exception(message, cause) {
+    /** True when the request never got an answer (no internet, server down, timeout). Only these are queued for retry. */
+    val isNetwork: Boolean get() = code == "NETWORK_ERROR" || code == "OFFLINE" || code == "OFFLINE_SIMULATED"
+}
 
 @Serializable
 data class LoginResult(
@@ -92,7 +97,12 @@ data class BulkResult(
     val message: String = "",
     val items: List<ItemOutcome> = emptyList(),
     val details: Map<String, String> = emptyMap(),
-    val table: ResultTable? = null
+    val table: ResultTable? = null,
+    /** HTTP status and raw body of the server answer, for on-screen debugging. */
+    val httpCode: Int = 0,
+    val raw: String = "",
+    /** Server answered 2xx but gave no message that confirms the DB write. */
+    val uncertain: Boolean = false
 )
 
 @Serializable

@@ -82,11 +82,7 @@ fun UnloadingScreen(
                 Spacer(Modifier.height(8.dp))
             }
             summary?.let {
-                StatusCard(
-                    tone = if (it.accepted > 0) com.rfid.rolltrack.ui.components.Banner.Tone.OK else com.rfid.rolltrack.ui.components.Banner.Tone.WARN,
-                    text = it.message,
-                    onDismiss = { vm.dismissSummary() }
-                )
+                com.rfid.rolltrack.ui.components.SubmitResultCard(summary = it, onDismiss = { vm.dismissSummary() })
                 Spacer(Modifier.height(8.dp))
             }
 
@@ -100,36 +96,19 @@ fun UnloadingScreen(
                     Column(Modifier.padding(16.dp)) {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Button(
-                                onClick = { showRfidPrompt = true },
-                                modifier = Modifier.weight(1f),
-                                colors = ButtonDefaults.buttonColors(containerColor = Palette.Navy)
-                            ) {
-                                Text("Scan Vehicle RFID")
-                            }
-                            OutlinedButton(
-                                onClick = { showTypeDialog = true },
-                                modifier = Modifier.weight(1f)
-                            ) {
-                                Text("Type loading ref")
-                            }
+                            Text("Scan roll RFIDs to unload", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Palette.Navy)
+                            Text("${items.size} rolls", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Palette.Navy)
                         }
-
-                        Spacer(Modifier.height(14.dp))
-                        Text(
-                            "Scan Vehicle / Loading RFID",
-                            fontSize = 16.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Palette.Navy
-                        )
-                        Spacer(Modifier.height(4.dp))
-                        Text(
-                            "Tap the Vehicle RFID card or Gate Pass tag against the reader to start unloading reconciliation.",
-                            fontSize = 13.sp,
-                            color = Palette.Muted
-                        )
+                        Spacer(Modifier.height(8.dp))
+                        OutlinedButton(
+                            onClick = { showTypeDialog = true },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text("Type loading ref (optional)")
+                        }
                     }
                 }
             } else {
@@ -145,7 +124,7 @@ fun UnloadingScreen(
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Column {
+                            Column(Modifier.weight(1f)) {
                                 Text(
                                     "Vehicle Manifest: $loadingRef",
                                     fontSize = 17.sp,
@@ -180,7 +159,7 @@ fun UnloadingScreen(
             }
         },
         list = {
-            if (loadingRef.isNotBlank()) {
+            run {
                 LazyColumn(modifier = Modifier.fillMaxSize()) {
                     items(items, key = { it.id }) { item ->
                         val isMatched = item.tagId in expectedIds
@@ -205,7 +184,7 @@ fun UnloadingScreen(
                                     val statusLabel = if (isMatched) {
                                         "Matched • ${rollNo ?: "Roll"}"
                                     } else {
-                                        "Extra (Not in manifest)"
+                                        if (expectedIds.isEmpty()) "Roll" else "Extra (Not in manifest)"
                                     }
                                     Text(
                                         statusLabel,
@@ -228,7 +207,7 @@ fun UnloadingScreen(
             }
         },
         bottomBar = {
-            if (loadingRef.isNotBlank()) {
+            run {
                 ScanBottomBar(
                     leftText = "Finish vehicle",
                     onLeftClick = { showConfirmFinish = true },

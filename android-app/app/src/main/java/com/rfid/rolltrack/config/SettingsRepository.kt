@@ -10,7 +10,9 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.launch
 
 private val Context.dataStore by preferencesDataStore(name = "rolltrack_settings")
 
@@ -62,11 +64,26 @@ class SettingsRepository(private val context: Context) {
         }
     }
 
+    private val KEY_SESSION = stringPreferencesKey("user_session")
+    private val io = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.SupervisorJob() + kotlinx.coroutines.Dispatchers.IO)
+
+    /** Restores the last login so app restarts / updates don't log the operator out. */
+    suspend fun restoreSession() {
+        val raw = context.dataStore.data.first()[KEY_SESSION] ?: return
+        try {
+            _session.value = kotlinx.serialization.json.Json.decodeFromString(UserSession.serializer(), raw)
+        } catch (_: Exception) {}
+    }
+
     fun setSession(userSession: UserSession) {
         _session.value = userSession
+        io.launch {
+            context.dataStore.edit { it[KEY_SESSION] = kotlinx.serialization.json.Json.encodeToString(UserSession.serializer(), userSession) }
+        }
     }
 
     fun clearSession() {
         _session.value = UserSession()
+        io.launch { context.dataStore.edit { it.remove(KEY_SESSION) } }
     }
 }

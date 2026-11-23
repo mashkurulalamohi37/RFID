@@ -9,11 +9,14 @@ import com.rfid.rolltrack.data.remote.WeightItem
 import com.rfid.rolltrack.data.remote.WorkOrder
 import com.rfid.rolltrack.scanner.ScanEvent
 import com.rfid.rolltrack.ui.common.ScanSessionViewModel
+import com.rfid.rolltrack.scanner.TagIdNormalizer
 import com.rfid.rolltrack.ui.components.Banner
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 
 class ProductionViewModel(container: AppContainer) :
     ScanSessionViewModel<ProductionHeader>(
@@ -45,23 +48,32 @@ class ProductionViewModel(container: AppContainer) :
     override suspend fun onTag(event: ScanEvent.Tag) {
         val ctx = header.value?.context
         if (ctx == null) {
-            // WORKFLOW 2: RFID scan replaces QR code scanning!
-            // Tapping an RFID tag/card loads the program/work-order!
-            openProgram(event.tagId, isRfid = true)
+            // A roll tag never identifies the program: pick the work order or scan the program QR first.
+            show(Banner.Tone.WARN, "Roll tag read (${TagIdNormalizer.short(event.tagId)}). Pick the work order or scan the program QR first.")
+            container.feedback.warn()
             return
         }
 
         // Program is active: this is a roll tag scan
         val success = addTag(event)
-        if (success) {
-            val item = items.value.firstOrNull { it.tagId == event.tagId }
-            if (item != null) {
+        if (success && _editingItem.value == null) {
+            // The new row reaches the list a moment after it is saved; wait for it, then open its weight box.
+            val item = withTimeoutOrNull(2000) {
+                items.first { list -> list.any { it.tagId == event.tagId } }.first { it.tagId == event.tagId }
+            }
+            if (item != null && _editingItem.value == null) {
                 _editingItem.value = item
             }
         }
     }
 
     override suspend fun onCode(event: ScanEvent.Code) {
+        val open = header.value?.context
+        if (open != null) {
+            show(Banner.Tone.WARN, "Program ${open.programNo} is open. Tap 'Change program' before loading ${event.raw.trim()}.")
+            container.feedback.warn()
+            return
+        }
         openProgram(event.raw, isRfid = false)
     }
 

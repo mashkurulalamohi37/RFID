@@ -9,7 +9,6 @@ import androidx.activity.compose.setContent
 import com.rfid.rolltrack.scanner.KeyboardWedge
 import com.rfid.rolltrack.scanner.PdaScannerReceiver
 import com.rfid.rolltrack.scanner.ScanSource
-import com.rfid.rolltrack.ui.NavHostKt
 import com.rfid.rolltrack.ui.RollTrackNavHost
 import com.rfid.rolltrack.ui.theme.RollTrackTheme
 
@@ -48,7 +47,12 @@ class MainActivity : ComponentActivity(), NfcAdapter.ReaderCallback {
         PdaScannerReceiver.register(this, pdaScanner)
 
         nfcAdapter?.let { adapter ->
+            // All NFC families: yellow key-fobs are often NFC-V (ISO 15693) or NFC-B, not only MIFARE (NFC-A).
             val flags = NfcAdapter.FLAG_READER_NFC_A or
+                    NfcAdapter.FLAG_READER_NFC_B or
+                    NfcAdapter.FLAG_READER_NFC_F or
+                    NfcAdapter.FLAG_READER_NFC_V or
+                    NfcAdapter.FLAG_READER_NFC_BARCODE or
                     NfcAdapter.FLAG_READER_SKIP_NDEF_CHECK or
                     NfcAdapter.FLAG_READER_NO_PLATFORM_SOUNDS
             val extras = Bundle().apply {
@@ -66,14 +70,22 @@ class MainActivity : ComponentActivity(), NfcAdapter.ReaderCallback {
 
     override fun onTagDiscovered(tag: Tag?) {
         if (tag == null) return
+        com.rfid.rolltrack.data.remote.ApiLog.info("scan raw (NFC): techs=${tag.techList.joinToString { it.substringAfterLast('.') }}")
         val idBytes = tag.id ?: return
         container.scanHub.publishNfcUid(idBytes)
     }
 
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
-        if (wedge.handle(event)) {
+        // USB keyboard-style tag reader capture is switched OFF: on this PDA the UHF trigger, barcode scanner and
+        // NFC do not send keystrokes, and capturing keys swallowed typing in text fields. To re-enable for a
+        // USB reader, set USB_READER_CAPTURE = true.
+        if (USB_READER_CAPTURE && wedge.handle(event)) {
             return true
         }
         return super.dispatchKeyEvent(event)
+    }
+
+    companion object {
+        private const val USB_READER_CAPTURE = false
     }
 }
