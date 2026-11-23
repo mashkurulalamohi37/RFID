@@ -31,9 +31,17 @@ object OrdsReply {
      * @param endpoint short label for messages, e.g. "load"
      * @return BulkResult(ok=true) when the server clearly accepted, or (ok=true, uncertain=true) when it answered 2xx
      *         without a usable message.
+     * @param sentTags the tags in the request. When given, a bulk reply such as
+     *        "2 loaded, 1 rejected - <tag> <reason>; ..." is split into per-tag [ItemOutcome]s so only the
+     *        rejected tags are marked FAILED on the device.
      * @throws ApiException when the server clearly rejected (HTTP error or a negative/zero procedure code).
      */
-    fun interpret(endpoint: String, res: RawResponse, successFallback: String = "Accepted"): BulkResult {
+    fun interpret(
+        endpoint: String,
+        res: RawResponse,
+        successFallback: String = "Accepted",
+        sentTags: List<String> = emptyList()
+    ): BulkResult {
         val raw = res.body
         val trimmed = raw.trim()
 
@@ -53,6 +61,9 @@ object OrdsReply {
         val el = try { LenientJson.json.parseToJsonElement(trimmed) } catch (_: Exception) { null }
         when (el) {
             is JsonObject -> {
+                // ORDS handlers report exceptions as {"error":"ORA-01403: no data found"} with HTTP 200.
+                val error = LenientJson.findString(el, "error")?.trim()
+                if (!error.isNullOrEmpty()) reject(res, "SERVER_ERROR", "Server DB error on '$endpoint': $error")
                 status = LenientJson.findString(el, *statusKeys)
                 message = LenientJson.findString(el, *messageKeys)
                 if (message == null) {
@@ -92,8 +103,58 @@ object OrdsReply {
             if (res.callId != 0L) ApiLog.setVerdict(res.callId, "UNCERTAIN", text)
             return BulkResult(ok = true, message = text, httpCode = res.code, raw = raw, uncertain = true)
         }
+        val bulk = if (sentTags.isNotEmpty()) parseBulk(msg, sentTags) else null
+        if (bulk != null && bulk.rejected > 0) {
+            val items = bulk.reasons.map { (tag, why) ->
+                ItemOutcome(tag, accepted = false, code = "REJECTED", message = why.ifBlank { "rejected by ERP" })
+            }
+            // Some rejected tags were not named (server cut the list short): the device cannot tell which,
+            // so the batch is flagged uncertain instead of silently counting them as saved.
+            val unnamed = bulk.rejected - items.size
+            val text = if (unnamed > 0) "$msg ($unnamed rejected tag(s) not named by the server - check them in the ERP)" else msg
+            val uncertain = unnamed > 0
+            if (res.callId != 0L) ApiLog.setVerdict(res.callId, if (uncertain) "UNCERTAIN" else "PARTIAL", text)
+            return BulkResult(ok = true, message = text, items = items, httpCode = res.code, raw = raw, uncertain = uncertain)
+        }
         if (res.callId != 0L) ApiLog.setVerdict(res.callId, "OK", msg)
         return BulkResult(ok = true, message = msg.ifBlank { successFallback }, httpCode = res.code, raw = raw)
+    }
+
+    internal data class BulkReply(val accepted: Int, val rejected: Int, val reasons: Map<String, String>)
+
+    private val bulkHead = Regex("^(\\d+) (loaded|unloaded|issued|saved), (\\d+) rejected", RegexOption.IGNORE_CASE)
+
+    /**
+     * Parses the reply of the fixed bulk procedures (see docs/proposed_db_fix.sql):
+     *   "<n> loaded, <m> rejected[, <k> duplicate(s) ignored][ - <tag> <reason>; <tag> <reason>...]"
+     * Reason text may itself contain "; ", so a fragment only starts a new entry when its first word is one of
+     * [sentTags] (compared ignoring case; the returned keys are the tags exactly as sent).
+     * @return null when [msg] is not in that format.
+     */
+    internal fun parseBulk(msg: String, sentTags: List<String>): BulkReply? {
+        val head = bulkHead.find(msg) ?: return null
+        val accepted = head.groupValues[1].toInt()
+        val rejected = head.groupValues[3].toInt()
+        val reasons = LinkedHashMap<String, String>()
+        val dash = msg.indexOf(" - ", head.range.last + 1)
+        if (dash >= 0) {
+            val bySent = sentTags.associateBy { it.trim().uppercase() }
+            var current: String? = null
+            for (part in msg.substring(dash + 3).split("; ")) {
+                val p = part.trim()
+                if (p.isEmpty()) continue
+                val space = p.indexOf(' ')
+                val first = if (space < 0) p else p.substring(0, space)
+                val tag = bySent[first.uppercase()]
+                if (tag != null) {
+                    current = tag
+                    reasons[tag] = if (space < 0) "" else p.substring(space + 1).trim()
+                } else if (current != null) {
+                    reasons[current] = reasons.getValue(current) + "; " + p
+                }
+            }
+        }
+        return BulkReply(accepted, rejected, reasons)
     }
 
     private fun reject(res: RawResponse, code: String, msg: String): Nothing {

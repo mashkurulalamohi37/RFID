@@ -159,9 +159,17 @@ fun LoadingScreen(
                                 horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Column {
+                            Column(Modifier.weight(1f)) {
                                 Text(item.tagId, fontWeight = FontWeight.Bold, fontSize = 15.sp)
-                                Text(item.source, color = Palette.Muted, fontSize = 12.sp)
+                                if (item.state == com.rfid.rolltrack.data.local.ItemState.FAILED) {
+                                    Text(
+                                        "Not saved: ${item.errorMessage ?: "rejected by ERP"}",
+                                        color = Palette.Bad,
+                                        fontSize = 12.sp
+                                    )
+                                } else {
+                                    Text(item.source, color = Palette.Muted, fontSize = 12.sp)
+                                }
                             }
                             Text(
                                 "Remove",

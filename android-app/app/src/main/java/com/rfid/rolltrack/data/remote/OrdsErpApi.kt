@@ -142,7 +142,7 @@ class OrdsErpApi(
     ): BulkResult {
         // Real path is snym_erp (xact_erp returns 404).
         val res = http.postJson(ordsUrl("snym_erp/api/sub-contract-issue"), itemsPayload(userId, tags, refId))
-        return OrdsReply.interpret("sub-contract-issue", res, "Issued")
+        return OrdsReply.interpret("sub-contract-issue", res, "Issued", tags)
     }
 
     override suspend fun programContext(userId: String, code: String): ProgramContext {
@@ -198,7 +198,7 @@ class OrdsErpApi(
     ): BulkResult {
         // Backend parameters are USER_ID + ITEMS only; vehicle/challan stay on the device for now.
         val res = http.postJson(ordsUrl("snym_erp/api/load"), itemsPayload(userId, tags))
-        val r = OrdsReply.interpret("load", res, "Loaded")
+        val r = OrdsReply.interpret("load", res, "Loaded", tags)
         val ref = LenientJson.findString(LenientJson.parseObject(res.body), "LOADING_REF", "loading_ref").orEmpty()
         return r.copy(details = mapOf("LOADING_REF" to ref))
     }
@@ -233,7 +233,7 @@ class OrdsErpApi(
         txnId: String
     ): BulkResult {
         val res = http.postJson(ordsUrl("snym_erp/api/unload"), itemsPayload(userId, tags))
-        return OrdsReply.interpret("unload", res, "Unloaded")
+        return OrdsReply.interpret("unload", res, "Unloaded", tags)
     }
 
     override suspend fun delivery(

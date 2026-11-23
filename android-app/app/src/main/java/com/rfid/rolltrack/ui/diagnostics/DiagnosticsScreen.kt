@@ -204,7 +204,7 @@ private fun ApiCallRow(c: ApiCall) {
     var open by remember { mutableStateOf(false) }
     val color = when {
         c.error != null || c.verdict == "REJECTED" || (c.httpCode ?: 0) !in 200..299 -> Palette.Bad
-        c.verdict == "UNCERTAIN" -> Palette.Warn
+        c.verdict == "UNCERTAIN" || c.verdict == "PARTIAL" -> Palette.Warn
         else -> Palette.Ok
     }
     val endpoint = c.url.substringAfter("/ords/").substringBefore('?')

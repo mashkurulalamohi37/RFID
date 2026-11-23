@@ -179,8 +179,15 @@ fun UnloadingScreen(
                                 horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Column {
+                                Column(Modifier.weight(1f)) {
                                     Text(item.tagId, fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                                    if (item.state == com.rfid.rolltrack.data.local.ItemState.FAILED) {
+                                        Text(
+                                            "Not saved: ${item.errorMessage ?: "rejected by ERP"}",
+                                            color = Palette.Bad,
+                                            fontSize = 12.sp
+                                        )
+                                    }
                                     val statusLabel = if (isMatched) {
                                         "Matched • ${rollNo ?: "Roll"}"
                                     } else {
