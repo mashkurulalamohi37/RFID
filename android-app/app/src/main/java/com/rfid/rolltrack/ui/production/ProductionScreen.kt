@@ -103,16 +103,35 @@ fun ProductionScreen(
                         )
 
                         Spacer(Modifier.height(12.dp))
+                        // Typing no longer calls the server per keystroke; Open (or Enter) opens the typed program.
+                        val openTyped = {
+                            val code = searchQuery.trim()
+                            if (code.isNotEmpty()) vm.openProgram(code)
+                        }
                         OutlinedTextField(
                             value = searchQuery,
-                            onValueChange = {
-                                searchQuery = it
-                                vm.searchWorkOrders(it)
-                            },
-                            label = { Text("Search Work Order / Program No") },
+                            onValueChange = { searchQuery = it },
+                            label = { Text("Program No (e.g. TEX-PRG-26070773)") },
                             singleLine = true,
+                            keyboardOptions = KeyboardOptions(imeAction = androidx.compose.ui.text.input.ImeAction.Go),
+                            keyboardActions = androidx.compose.foundation.text.KeyboardActions(onGo = { openTyped() }),
                             modifier = Modifier.fillMaxWidth()
                         )
+                        Spacer(Modifier.height(8.dp))
+                        Button(
+                            onClick = { openTyped() },
+                            enabled = searchQuery.isNotBlank() && !busy,
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = ButtonDefaults.buttonColors(containerColor = Palette.Navy)
+                        ) { Text("Open program") }
+                        if (workOrders.isEmpty()) {
+                            Spacer(Modifier.height(6.dp))
+                            Text(
+                                "The ERP has no work-order list service yet, so type the program number and tap Open.",
+                                fontSize = 12.sp,
+                                color = Palette.Muted
+                            )
+                        }
                     }
                 }
             } else {

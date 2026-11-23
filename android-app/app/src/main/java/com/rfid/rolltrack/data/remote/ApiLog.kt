@@ -55,7 +55,11 @@ object ApiLog {
     fun newId(): Long = nextId++
 
     fun record(call: ApiCall) {
-        val masked = call.copy(url = mask(call.url), requestBody = call.requestBody?.let { mask(it) })
+        val masked = call.copy(
+            url = mask(call.url),
+            requestBody = call.requestBody?.let { mask(it) },
+            responseBody = call.responseBody?.let { shortenHtml(it) }
+        )
         _calls.update { (listOf(masked) + it).take(MAX) }
         val line = masked.toText().trimEnd()
         if (masked.error != null || (masked.httpCode ?: 0) !in 200..299) safeLog(Log.ERROR, line) else safeLog(Log.DEBUG, line)
@@ -75,6 +79,16 @@ object ApiLog {
     fun dump(): String = _calls.value.joinToString("\n") { it.toText() }
 
     fun fmt(t: Long): String = SimpleDateFormat("HH:mm:ss.SSS", Locale.US).format(Date(t))
+
+    /** ORDS error pages (404 etc.) are long HTML: keep only their title so the log stays readable. */
+    private fun shortenHtml(body: String): String {
+        val t = body.trimStart()
+        if (!t.startsWith("<")) return body
+        val title = Regex("<title>(.*?)</title>", RegexOption.IGNORE_CASE).find(t)?.groupValues?.get(1)?.trim()
+        val h1 = Regex("<h1[^>]*>(.*?)</h1>", setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL)).find(t)
+            ?.groupValues?.get(1)?.replace(Regex("<[^>]+>"), "")?.trim()
+        return "(HTML page, ${body.length} chars) " + listOfNotNull(title, h1).distinct().joinToString(" - ").ifBlank { "no title" }
+    }
 
     private fun mask(s: String): String =
         s.replace(Regex("(USER_PASSWORD=)[^&]*", RegexOption.IGNORE_CASE), "$1***")

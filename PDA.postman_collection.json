@@ -2,32 +2,74 @@
   "info": {
     "_postman_id": "7297b75f-a6f7-4d3a-a551-eaaa584520a5",
     "name": "PDA (RollTrack) - tested",
-    "description": "RollTrack PDA endpoints on the ORDS module \"PDA\", verified live on 2026-11-18 and 2026-11-23.\n\nBase URL uses the ORDS schema alias **snym_erp** (the APEX workspace name xact_erp is NOT part of the API URL; xact_erp/api/... returns 404).\n\nBefore use: set the collection variable `userPassword` (left empty on purpose, never commit it).\n\nNote: load, unload and sub-contract-issue reach the server and answer SUCCESS, but their procedures (TAGGING_RFID_TO_LOAD / _UNLOAD / _ROLL) are placeholders that save nothing yet. ref-weight is not included because it has not been tested.",
+    "description": "RollTrack PDA endpoints on the ORDS module \"PDA\", verified live on 2026-11-18 and 2026-11-23.\n\nBase URL uses the ORDS schema alias **snym_erp** (the APEX workspace name xact_erp is NOT part of the API URL; xact_erp/api/... returns 404).\n\nBefore use: set the collection variable `userPassword` (left empty on purpose, never commit it).\n\nNote: load, unload, sub-contract-issue and ref-weight reach the server and answer SUCCESS, but their code is placeholder (TAGGING_RFID_TO_LOAD / _UNLOAD / _ROLL, and ref-weight has only \"-- UPDATE ROLL WEIGHT HERE\"); nothing is saved yet.\n\nReal test data (from the ERP, 2026-11-23):\n- Request (Tag Issue): BPKWL-13/IR25060017 -> REF_ID 38 (YRN_PRC_REQUISITIONS)\n- Program (Production): TEX-PRG-26070773 (TEX_PROGRAMS.ID 24749), status Running, buyer INDITEX\n- Work order: WO-W260700198 (TEX_WASH_WORDER.PID 4712), linked to rolls 260700025803, 260700026168, 260700026655\n- Program and work-order lookups (program, work-orders) do not exist on the server yet (404).",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
     "_exporter_id": "19491507"
   },
   "variable": [
-    { "key": "baseUrl", "value": "http://118.179.223.40:7007/ords/snym_erp/api", "type": "string" },
-    { "key": "userName", "value": "Sumon", "type": "string" },
-    { "key": "userPassword", "value": "", "type": "string" },
-    { "key": "userId", "value": "1", "type": "string" },
-    { "key": "refCodeNo", "value": "BPKWL-13/IR25060017", "type": "string" },
-    { "key": "refId", "value": "38", "type": "string" }
+    {
+      "key": "baseUrl",
+      "value": "http://118.179.223.40:7007/ords/snym_erp/api",
+      "type": "string"
+    },
+    {
+      "key": "userName",
+      "value": "Sumon",
+      "type": "string"
+    },
+    {
+      "key": "userPassword",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "userId",
+      "value": "1",
+      "type": "string"
+    },
+    {
+      "key": "refCodeNo",
+      "value": "BPKWL-13/IR25060017",
+      "type": "string"
+    },
+    {
+      "key": "refId",
+      "value": "38",
+      "type": "string"
+    },
+    {
+      "key": "programNo",
+      "value": "TEX-PRG-26070773",
+      "type": "string"
+    }
   ],
   "item": [
     {
       "name": "1. pda-login",
       "request": {
-        "auth": { "type": "inherit" },
+        "auth": {
+          "type": "inherit"
+        },
         "method": "POST",
         "header": [],
         "url": {
           "raw": "{{baseUrl}}/pda-login?USER_NAME={{userName}}&USER_PASSWORD={{userPassword}}",
-          "host": ["{{baseUrl}}"],
-          "path": ["pda-login"],
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "pda-login"
+          ],
           "query": [
-            { "key": "USER_NAME", "value": "{{userName}}" },
-            { "key": "USER_PASSWORD", "value": "{{userPassword}}", "description": "URL-encode special characters, e.g. # becomes %23" }
+            {
+              "key": "USER_NAME",
+              "value": "{{userName}}"
+            },
+            {
+              "key": "USER_PASSWORD",
+              "value": "{{userPassword}}",
+              "description": "URL-encode special characters, e.g. # becomes %23"
+            }
           ]
         },
         "description": "Login. Returns the USER_ID used by every other call."
@@ -40,18 +82,33 @@
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/pda-login?USER_NAME={{userName}}&USER_PASSWORD={{userPassword}}",
-              "host": ["{{baseUrl}}"],
-              "path": ["pda-login"],
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "pda-login"
+              ],
               "query": [
-                { "key": "USER_NAME", "value": "{{userName}}" },
-                { "key": "USER_PASSWORD", "value": "{{userPassword}}" }
+                {
+                  "key": "USER_NAME",
+                  "value": "{{userName}}"
+                },
+                {
+                  "key": "USER_PASSWORD",
+                  "value": "{{userPassword}}"
+                }
               ]
             }
           },
           "status": "OK",
           "code": 200,
           "_postman_previewlanguage": "json",
-          "header": [{ "key": "Content-Type", "value": "application/json" }],
+          "header": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
           "body": "{\n\"status\":\"SUCCESS\"\n,\"USER_ID\":1\n}"
         }
       ]
@@ -59,16 +116,29 @@
     {
       "name": "2. req-scan (look up request)",
       "request": {
-        "auth": { "type": "inherit" },
+        "auth": {
+          "type": "inherit"
+        },
         "method": "POST",
         "header": [],
         "url": {
           "raw": "{{baseUrl}}/req-scan?USER_ID={{userId}}&REF_CODE_NO={{refCodeNo}}",
-          "host": ["{{baseUrl}}"],
-          "path": ["req-scan"],
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "req-scan"
+          ],
           "query": [
-            { "key": "USER_ID", "value": "{{userId}}" },
-            { "key": "REF_CODE_NO", "value": "{{refCodeNo}}", "description": "Requisition number (YRN_PRC_REQUISITIONS.REQ_NO). Not a work-order or roll number." }
+            {
+              "key": "USER_ID",
+              "value": "{{userId}}"
+            },
+            {
+              "key": "REF_CODE_NO",
+              "value": "{{refCodeNo}}",
+              "description": "Requisition number (YRN_PRC_REQUISITIONS.REQ_NO). Not a work-order or roll number."
+            }
           ]
         },
         "description": "Read-only. Finds the requisition by REQ_NO and returns its numeric REF_ID for sub-contract-issue. NO_OF_ITEMS is currently hard-coded to 10 on the server."
@@ -81,18 +151,33 @@
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/req-scan?USER_ID={{userId}}&REF_CODE_NO={{refCodeNo}}",
-              "host": ["{{baseUrl}}"],
-              "path": ["req-scan"],
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "req-scan"
+              ],
               "query": [
-                { "key": "USER_ID", "value": "{{userId}}" },
-                { "key": "REF_CODE_NO", "value": "{{refCodeNo}}" }
+                {
+                  "key": "USER_ID",
+                  "value": "{{userId}}"
+                },
+                {
+                  "key": "REF_CODE_NO",
+                  "value": "{{refCodeNo}}"
+                }
               ]
             }
           },
           "status": "OK",
           "code": 200,
           "_postman_previewlanguage": "json",
-          "header": [{ "key": "Content-Type", "value": "application/json" }],
+          "header": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
           "body": "{\n\"status\":\"SUCCESS\"\n,\"REF_ID\":38\n,\"NO_OF_ITEMS\":10\n}"
         },
         {
@@ -102,18 +187,33 @@
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/req-scan?USER_ID={{userId}}&REF_CODE_NO=WO-W260700198",
-              "host": ["{{baseUrl}}"],
-              "path": ["req-scan"],
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "req-scan"
+              ],
               "query": [
-                { "key": "USER_ID", "value": "{{userId}}" },
-                { "key": "REF_CODE_NO", "value": "WO-W260700198" }
+                {
+                  "key": "USER_ID",
+                  "value": "{{userId}}"
+                },
+                {
+                  "key": "REF_CODE_NO",
+                  "value": "WO-W260700198"
+                }
               ]
             }
           },
           "status": "OK",
           "code": 200,
           "_postman_previewlanguage": "json",
-          "header": [{ "key": "Content-Type", "value": "application/json" }],
+          "header": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
           "body": "{\n\"error\":\"ORA-01403: no data found\"\n}"
         }
       ]
@@ -121,18 +221,33 @@
     {
       "name": "3. sub-contract-issue (Tag Issue)",
       "request": {
-        "auth": { "type": "inherit" },
+        "auth": {
+          "type": "inherit"
+        },
         "method": "POST",
-        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
         "body": {
           "mode": "raw",
           "raw": "{\n  \"REF_ID\": \"{{refId}}\",\n  \"USER_ID\": \"{{userId}}\",\n  \"ITEMS\": [\"E2806A960000402D1EB05D2F\", \"E2806A960000502D1EB05952\"]\n}",
-          "options": { "raw": { "language": "json" } }
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
         },
         "url": {
           "raw": "{{baseUrl}}/sub-contract-issue",
-          "host": ["{{baseUrl}}"],
-          "path": ["sub-contract-issue"]
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "sub-contract-issue"
+          ]
         },
         "description": "Corrected path: snym_erp (the old xact_erp path returns 404). REF_ID must be the numeric id from req-scan; a non-numeric REF_ID makes the server answer \"User ID not found\". Calls TAGGING_RFID_TO_ROLL, which is a placeholder (saves nothing yet)."
       },
@@ -141,18 +256,40 @@
           "name": "Accepted",
           "originalRequest": {
             "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "body": {
               "mode": "raw",
               "raw": "{\n  \"REF_ID\": \"38\",\n  \"USER_ID\": \"1\",\n  \"ITEMS\": [\"E2806A960000402D1EB05D2F\", \"E2806A960000502D1EB05952\"]\n}",
-              "options": { "raw": { "language": "json" } }
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
             },
-            "url": { "raw": "{{baseUrl}}/sub-contract-issue", "host": ["{{baseUrl}}"], "path": ["sub-contract-issue"] }
+            "url": {
+              "raw": "{{baseUrl}}/sub-contract-issue",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "sub-contract-issue"
+              ]
+            }
           },
           "status": "OK",
           "code": 200,
           "_postman_previewlanguage": "json",
-          "header": [{ "key": "Content-Type", "value": "application/json" }],
+          "header": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
           "body": "{\n\"status\":\"SUCCESS\"\n,\"message\":\"QR Code 38 tagged to 2 item(s)\"\n}"
         }
       ]
@@ -160,18 +297,33 @@
     {
       "name": "4. load (Loading)",
       "request": {
-        "auth": { "type": "inherit" },
+        "auth": {
+          "type": "inherit"
+        },
         "method": "POST",
-        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
         "body": {
           "mode": "raw",
           "raw": "{\n  \"USER_ID\": \"{{userId}}\",\n  \"ITEMS\": [\"E2806A960000402D1EB05D2F\", \"E2806A960000502D1EB05952\"]\n}",
-          "options": { "raw": { "language": "json" } }
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
         },
         "url": {
           "raw": "{{baseUrl}}/load",
-          "host": ["{{baseUrl}}"],
-          "path": ["load"]
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "load"
+          ]
         },
         "description": "Marks rolls as loaded. ITEMS = roll tag IDs. Calls TAGGING_RFID_TO_LOAD, which is a placeholder (saves nothing yet)."
       },
@@ -180,18 +332,40 @@
           "name": "Accepted",
           "originalRequest": {
             "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "body": {
               "mode": "raw",
               "raw": "{\n  \"USER_ID\": \"1\",\n  \"ITEMS\": [\"E2806A960000402D1EB05D2F\", \"E2806A960000502D1EB05952\"]\n}",
-              "options": { "raw": { "language": "json" } }
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
             },
-            "url": { "raw": "{{baseUrl}}/load", "host": ["{{baseUrl}}"], "path": ["load"] }
+            "url": {
+              "raw": "{{baseUrl}}/load",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "load"
+              ]
+            }
           },
           "status": "OK",
           "code": 200,
           "_postman_previewlanguage": "json",
-          "header": [{ "key": "Content-Type", "value": "application/json" }],
+          "header": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
           "body": "{\n\"status\":\"SUCCESS\"\n,\"message\":\"2 item(s)\"\n}"
         }
       ]
@@ -199,18 +373,33 @@
     {
       "name": "5. unload (Unloading)",
       "request": {
-        "auth": { "type": "inherit" },
+        "auth": {
+          "type": "inherit"
+        },
         "method": "POST",
-        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
         "body": {
           "mode": "raw",
           "raw": "{\n  \"USER_ID\": \"{{userId}}\",\n  \"ITEMS\": [\"E2806A960000402D1EB05D2F\", \"E2806A960000502D1EB05952\"]\n}",
-          "options": { "raw": { "language": "json" } }
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
         },
         "url": {
           "raw": "{{baseUrl}}/unload",
-          "host": ["{{baseUrl}}"],
-          "path": ["unload"]
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "unload"
+          ]
         },
         "description": "Marks rolls as unloaded. ITEMS = roll tag IDs. Calls TAGGING_RFID_TO_UNLOAD, which is a placeholder (saves nothing yet)."
       },
@@ -219,37 +408,161 @@
           "name": "Accepted",
           "originalRequest": {
             "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "body": {
               "mode": "raw",
               "raw": "{\n  \"USER_ID\": \"1\",\n  \"ITEMS\": [\"E2806A960000402D1EB05D2F\", \"E2806A960000502D1EB05952\"]\n}",
-              "options": { "raw": { "language": "json" } }
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
             },
-            "url": { "raw": "{{baseUrl}}/unload", "host": ["{{baseUrl}}"], "path": ["unload"] }
+            "url": {
+              "raw": "{{baseUrl}}/unload",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "unload"
+              ]
+            }
           },
           "status": "OK",
           "code": 200,
           "_postman_previewlanguage": "json",
-          "header": [{ "key": "Content-Type", "value": "application/json" }],
+          "header": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
           "body": "{\n\"status\":\"SUCCESS\"\n,\"message\":\"2 item(s)\"\n}"
         },
         {
           "name": "Missing USER_ID",
           "originalRequest": {
             "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "body": {
               "mode": "raw",
               "raw": "{\n  \"USER_ID\": \"\",\n  \"ITEMS\": [\"E2806A960000402D1EB05D2F\"]\n}",
-              "options": { "raw": { "language": "json" } }
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
             },
-            "url": { "raw": "{{baseUrl}}/unload", "host": ["{{baseUrl}}"], "path": ["unload"] }
+            "url": {
+              "raw": "{{baseUrl}}/unload",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "unload"
+              ]
+            }
           },
           "status": "OK",
           "code": 200,
           "_postman_previewlanguage": "json",
-          "header": [{ "key": "Content-Type", "value": "application/json" }],
+          "header": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
           "body": "{\n\"status\":\"ERROR\"\n,\"message\":\"User ID not found\"\n}"
+        }
+      ]
+    },
+    {
+      "name": "6. ref-weight (Production roll weight)",
+      "request": {
+        "auth": {
+          "type": "inherit"
+        },
+        "method": "PUT",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/ref-weight?USER_ID={{userId}}&ITEM=E2806A960000402D1EB05D2F&WEIGHT=30.0",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "ref-weight"
+          ],
+          "query": [
+            {
+              "key": "USER_ID",
+              "value": "{{userId}}"
+            },
+            {
+              "key": "ITEM",
+              "value": "E2806A960000402D1EB05D2F",
+              "description": "Roll tag ID"
+            },
+            {
+              "key": "WEIGHT",
+              "value": "30.0",
+              "description": "kg"
+            }
+          ]
+        },
+        "description": "One call per roll. Placeholder on the server: checks USER_ID, then only echoes ITEM and WEIGHT (\"-- UPDATE ROLL WEIGHT HERE\"); nothing is saved yet."
+      },
+      "response": [
+        {
+          "name": "Echo (not saved)",
+          "originalRequest": {
+            "method": "PUT",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/ref-weight?USER_ID={{userId}}&ITEM=E2806A960000402D1EB05D2F&WEIGHT=30.0",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "ref-weight"
+              ],
+              "query": [
+                {
+                  "key": "USER_ID",
+                  "value": "{{userId}}"
+                },
+                {
+                  "key": "ITEM",
+                  "value": "E2806A960000402D1EB05D2F",
+                  "description": "Roll tag ID"
+                },
+                {
+                  "key": "WEIGHT",
+                  "value": "30.0",
+                  "description": "kg"
+                }
+              ]
+            }
+          },
+          "status": "OK",
+          "code": 200,
+          "_postman_previewlanguage": "json",
+          "header": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "body": "{\n\"status\":\"SUCCESS\"\n,\"ITEMS\":\"E2806A960000402D1EB05D2F\"\n,\"WEIGHT\":\"30.0\"\n}"
         }
       ]
     }

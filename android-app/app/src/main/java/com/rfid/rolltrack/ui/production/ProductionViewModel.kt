@@ -104,7 +104,7 @@ class ProductionViewModel(container: AppContainer) :
                 val ctx = container.api.programContext(userId, code)
                 saveHeader(ProductionHeader(context = ctx))
                 val sourceLabel = if (isRfid) "RFID Tag" else "Code"
-                show(Banner.Tone.OK, "Program loaded via $sourceLabel: ${ctx.programNo} (${ctx.woNo})")
+                show(Banner.Tone.OK, "Program loaded via $sourceLabel: ${ctx.programNo}" + if (ctx.woNo.isNotBlank()) " (${ctx.woNo})" else "")
                 container.feedback.tagAccepted()
             } catch (e: Exception) {
                 show(Banner.Tone.BAD, e.message ?: "Failed to open program: $code")
