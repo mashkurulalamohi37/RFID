@@ -1,278 +1,257 @@
 {
   "info": {
     "_postman_id": "7297b75f-a6f7-4d3a-a551-eaaa584520a5",
-    "name": "PDA",
+    "name": "PDA (RollTrack) - tested",
+    "description": "RollTrack PDA endpoints on the ORDS module \"PDA\", verified live on 2026-11-18 and 2026-11-23.\n\nBase URL uses the ORDS schema alias **snym_erp** (the APEX workspace name xact_erp is NOT part of the API URL; xact_erp/api/... returns 404).\n\nBefore use: set the collection variable `userPassword` (left empty on purpose, never commit it).\n\nNote: load, unload and sub-contract-issue reach the server and answer SUCCESS, but their procedures (TAGGING_RFID_TO_LOAD / _UNLOAD / _ROLL) are placeholders that save nothing yet. ref-weight is not included because it has not been tested.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
     "_exporter_id": "19491507"
   },
+  "variable": [
+    { "key": "baseUrl", "value": "http://118.179.223.40:7007/ords/snym_erp/api", "type": "string" },
+    { "key": "userName", "value": "Sumon", "type": "string" },
+    { "key": "userPassword", "value": "", "type": "string" },
+    { "key": "userId", "value": "1", "type": "string" },
+    { "key": "refCodeNo", "value": "BPKWL-13/IR25060017", "type": "string" },
+    { "key": "refId", "value": "38", "type": "string" }
+  ],
   "item": [
     {
-      "name": "http://118.179.223.40:7007/ords/snym_erp/api/unload",
+      "name": "1. pda-login",
       "request": {
-        "auth": {
-          "type": "inherit"
-        },
+        "auth": { "type": "inherit" },
         "method": "POST",
         "header": [],
-        "body": {
-          "mode": "raw",
-          "raw": "{\r\n  \"USER_ID\": \"1\",\r\n  \"ITEMS\": [\"1123456\", \"21234\", \"31234\", \"412345\"]\r\n}",
-          "options": {
-            "raw": {
-              "language": "json"
-            }
-          }
-        },
         "url": {
-          "raw": "http://118.179.223.40:7007/ords/snym_erp/api/unload",
-          "protocol": "http",
-          "host": [
-            "118",
-            "179",
-            "223",
-            "40"
-          ],
-          "port": "7007",
-          "path": [
-            "ords",
-            "snym_erp",
-            "api",
-            "unload"
-          ]
-        }
-      },
-      "response": []
-    },
-    {
-      "name": "http://118.179.223.40:7007/ords/snym_erp/api/load",
-      "request": {
-        "auth": {
-          "type": "inherit"
-        },
-        "method": "POST",
-        "header": [],
-        "body": {
-          "mode": "raw",
-          "raw": "{\r\n  \"USER_ID\": \"1\",\r\n  \"ITEMS\": [\"1123456\", \"21234\", \"31234\", \"412345\"]\r\n}",
-          "options": {
-            "raw": {
-              "language": "json"
-            }
-          }
-        },
-        "url": {
-          "raw": "http://118.179.223.40:7007/ords/snym_erp/api/load",
-          "protocol": "http",
-          "host": [
-            "118",
-            "179",
-            "223",
-            "40"
-          ],
-          "port": "7007",
-          "path": [
-            "ords",
-            "snym_erp",
-            "api",
-            "load"
-          ]
-        }
-      },
-      "response": []
-    },
-    {
-      "name": "http://118.179.223.40:7007/ords/snym_erp/api/ref-weight?USER_ID=1&ITEM=1&WEIGHT=1",
-      "request": {
-        "auth": {
-          "type": "inherit"
-        },
-        "method": "PUT",
-        "header": [],
-        "url": {
-          "raw": "http://118.179.223.40:7007/ords/snym_erp/api/ref-weight?USER_ID=1&ITEM=1&WEIGHT=1",
-          "protocol": "http",
-          "host": [
-            "118",
-            "179",
-            "223",
-            "40"
-          ],
-          "port": "7007",
-          "path": [
-            "ords",
-            "snym_erp",
-            "api",
-            "ref-weight"
-          ],
+          "raw": "{{baseUrl}}/pda-login?USER_NAME={{userName}}&USER_PASSWORD={{userPassword}}",
+          "host": ["{{baseUrl}}"],
+          "path": ["pda-login"],
           "query": [
-            {
-              "key": "USER_ID",
-              "value": "1",
-              "type": "text",
-              "id": 0,
-              "sortOrder": 0
-            },
-            {
-              "key": "ITEM",
-              "value": "1",
-              "type": "text",
-              "id": 1,
-              "sortOrder": 1
-            },
-            {
-              "key": "WEIGHT",
-              "value": "1",
-              "type": "text",
-              "id": 2,
-              "sortOrder": 2
-            }
+            { "key": "USER_NAME", "value": "{{userName}}" },
+            { "key": "USER_PASSWORD", "value": "{{userPassword}}", "description": "URL-encode special characters, e.g. # becomes %23" }
           ]
-        }
+        },
+        "description": "Login. Returns the USER_ID used by every other call."
       },
-      "response": []
-    },
-    {
-      "name": "http://118.179.223.40:7007/ords/xact_erp/api/sub-contract-issue",
-      "request": {
-        "auth": {
-          "type": "inherit"
-        },
-        "method": "POST",
-        "header": [],
-        "body": {
-          "mode": "raw",
-          "raw": "{\r\n  \"REF_ID\": \"38\",\r\n  \"USER_ID\": \"1\",\r\n  \"ITEMS\": [\"1123456\", \"21234\", \"31234\", \"412345\"]\r\n}",
-          "options": {
-            "raw": {
-              "language": "json"
-            }
-          }
-        },
-        "url": {
-          "raw": "http://118.179.223.40:7007/ords/xact_erp/api/sub-contract-issue",
-          "protocol": "http",
-          "host": [
-            "118",
-            "179",
-            "223",
-            "40"
-          ],
-          "port": "7007",
-          "path": [
-            "ords",
-            "xact_erp",
-            "api",
-            "sub-contract-issue"
-          ]
-        }
-      },
-      "response": []
-    },
-    {
-      "name": "http://118.179.223.40:7007/ords/snym_erp/api/req-scan?USER_ID=1&REF_CODE_NO=BPKWL-13/IR25060017",
-      "request": {
-        "auth": {
-          "type": "inherit"
-        },
-        "method": "POST",
-        "header": [],
-        "body": {
-          "mode": "raw",
-          "raw": "",
-          "options": {
-            "raw": {
-              "language": "text"
-            }
-          }
-        },
-        "url": {
-          "raw": "http://118.179.223.40:7007/ords/snym_erp/api/req-scan?USER_ID=1&REF_CODE_NO=BPKWL-13/IR25060017",
-          "protocol": "http",
-          "host": [
-            "118",
-            "179",
-            "223",
-            "40"
-          ],
-          "port": "7007",
-          "path": [
-            "ords",
-            "snym_erp",
-            "api",
-            "req-scan"
-          ],
-          "query": [
-            {
-              "key": "USER_ID",
-              "value": "1",
-              "type": "text",
-              "id": 0,
-              "sortOrder": 0
-            },
-            {
-              "key": "REF_CODE_NO",
-              "value": "BPKWL-13/IR25060017",
-              "type": "text",
-              "id": 1,
-              "sortOrder": 1
-            }
-          ]
-        }
-      },
-      "response": []
-    },
-    {
-      "name": "http://118.179.223.40:7007/ords/snym_erp/api/pda-login?USER_NAME=Sumon&USER_PASSWORD=sumon%23%231031",
-      "event": [
+      "response": [
         {
-          "listen": "test",
-          "script": {
-            "exec": [
-              ""
-            ],
-            "type": "text/javascript",
-            "packages": {}
-          }
+          "name": "Success",
+          "originalRequest": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/pda-login?USER_NAME={{userName}}&USER_PASSWORD={{userPassword}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["pda-login"],
+              "query": [
+                { "key": "USER_NAME", "value": "{{userName}}" },
+                { "key": "USER_PASSWORD", "value": "{{userPassword}}" }
+              ]
+            }
+          },
+          "status": "OK",
+          "code": 200,
+          "_postman_previewlanguage": "json",
+          "header": [{ "key": "Content-Type", "value": "application/json" }],
+          "body": "{\n\"status\":\"SUCCESS\"\n,\"USER_ID\":1\n}"
         }
-      ],
+      ]
+    },
+    {
+      "name": "2. req-scan (look up request)",
       "request": {
+        "auth": { "type": "inherit" },
         "method": "POST",
         "header": [],
         "url": {
-          "raw": "http://118.179.223.40:7007/ords/snym_erp/api/pda-login?USER_NAME=Sumon&USER_PASSWORD=sumon%23%231031",
-          "protocol": "http",
-          "host": [
-            "118",
-            "179",
-            "223",
-            "40"
-          ],
-          "port": "7007",
-          "path": [
-            "ords",
-            "snym_erp",
-            "api",
-            "pda-login"
-          ],
+          "raw": "{{baseUrl}}/req-scan?USER_ID={{userId}}&REF_CODE_NO={{refCodeNo}}",
+          "host": ["{{baseUrl}}"],
+          "path": ["req-scan"],
           "query": [
-            {
-              "key": "USER_NAME",
-              "value": "Sumon",
-              "type": "text",
-              "id": 0,
-              "sortOrder": 0
-            },
-            {
-              "key": "USER_PASSWORD",
-              "value": "sumon##1031",
-              "type": "text",
-              "id": 1,
-              "sortOrder": 1
-            }
+            { "key": "USER_ID", "value": "{{userId}}" },
+            { "key": "REF_CODE_NO", "value": "{{refCodeNo}}", "description": "Requisition number (YRN_PRC_REQUISITIONS.REQ_NO). Not a work-order or roll number." }
           ]
-        }
+        },
+        "description": "Read-only. Finds the requisition by REQ_NO and returns its numeric REF_ID for sub-contract-issue. NO_OF_ITEMS is currently hard-coded to 10 on the server."
       },
-      "response": []
+      "response": [
+        {
+          "name": "Found",
+          "originalRequest": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/req-scan?USER_ID={{userId}}&REF_CODE_NO={{refCodeNo}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["req-scan"],
+              "query": [
+                { "key": "USER_ID", "value": "{{userId}}" },
+                { "key": "REF_CODE_NO", "value": "{{refCodeNo}}" }
+              ]
+            }
+          },
+          "status": "OK",
+          "code": 200,
+          "_postman_previewlanguage": "json",
+          "header": [{ "key": "Content-Type", "value": "application/json" }],
+          "body": "{\n\"status\":\"SUCCESS\"\n,\"REF_ID\":38\n,\"NO_OF_ITEMS\":10\n}"
+        },
+        {
+          "name": "Not found",
+          "originalRequest": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/req-scan?USER_ID={{userId}}&REF_CODE_NO=WO-W260700198",
+              "host": ["{{baseUrl}}"],
+              "path": ["req-scan"],
+              "query": [
+                { "key": "USER_ID", "value": "{{userId}}" },
+                { "key": "REF_CODE_NO", "value": "WO-W260700198" }
+              ]
+            }
+          },
+          "status": "OK",
+          "code": 200,
+          "_postman_previewlanguage": "json",
+          "header": [{ "key": "Content-Type", "value": "application/json" }],
+          "body": "{\n\"error\":\"ORA-01403: no data found\"\n}"
+        }
+      ]
+    },
+    {
+      "name": "3. sub-contract-issue (Tag Issue)",
+      "request": {
+        "auth": { "type": "inherit" },
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"REF_ID\": \"{{refId}}\",\n  \"USER_ID\": \"{{userId}}\",\n  \"ITEMS\": [\"E2806A960000402D1EB05D2F\", \"E2806A960000502D1EB05952\"]\n}",
+          "options": { "raw": { "language": "json" } }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/sub-contract-issue",
+          "host": ["{{baseUrl}}"],
+          "path": ["sub-contract-issue"]
+        },
+        "description": "Corrected path: snym_erp (the old xact_erp path returns 404). REF_ID must be the numeric id from req-scan; a non-numeric REF_ID makes the server answer \"User ID not found\". Calls TAGGING_RFID_TO_ROLL, which is a placeholder (saves nothing yet)."
+      },
+      "response": [
+        {
+          "name": "Accepted",
+          "originalRequest": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"REF_ID\": \"38\",\n  \"USER_ID\": \"1\",\n  \"ITEMS\": [\"E2806A960000402D1EB05D2F\", \"E2806A960000502D1EB05952\"]\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{baseUrl}}/sub-contract-issue", "host": ["{{baseUrl}}"], "path": ["sub-contract-issue"] }
+          },
+          "status": "OK",
+          "code": 200,
+          "_postman_previewlanguage": "json",
+          "header": [{ "key": "Content-Type", "value": "application/json" }],
+          "body": "{\n\"status\":\"SUCCESS\"\n,\"message\":\"QR Code 38 tagged to 2 item(s)\"\n}"
+        }
+      ]
+    },
+    {
+      "name": "4. load (Loading)",
+      "request": {
+        "auth": { "type": "inherit" },
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"USER_ID\": \"{{userId}}\",\n  \"ITEMS\": [\"E2806A960000402D1EB05D2F\", \"E2806A960000502D1EB05952\"]\n}",
+          "options": { "raw": { "language": "json" } }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/load",
+          "host": ["{{baseUrl}}"],
+          "path": ["load"]
+        },
+        "description": "Marks rolls as loaded. ITEMS = roll tag IDs. Calls TAGGING_RFID_TO_LOAD, which is a placeholder (saves nothing yet)."
+      },
+      "response": [
+        {
+          "name": "Accepted",
+          "originalRequest": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"USER_ID\": \"1\",\n  \"ITEMS\": [\"E2806A960000402D1EB05D2F\", \"E2806A960000502D1EB05952\"]\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{baseUrl}}/load", "host": ["{{baseUrl}}"], "path": ["load"] }
+          },
+          "status": "OK",
+          "code": 200,
+          "_postman_previewlanguage": "json",
+          "header": [{ "key": "Content-Type", "value": "application/json" }],
+          "body": "{\n\"status\":\"SUCCESS\"\n,\"message\":\"2 item(s)\"\n}"
+        }
+      ]
+    },
+    {
+      "name": "5. unload (Unloading)",
+      "request": {
+        "auth": { "type": "inherit" },
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"USER_ID\": \"{{userId}}\",\n  \"ITEMS\": [\"E2806A960000402D1EB05D2F\", \"E2806A960000502D1EB05952\"]\n}",
+          "options": { "raw": { "language": "json" } }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/unload",
+          "host": ["{{baseUrl}}"],
+          "path": ["unload"]
+        },
+        "description": "Marks rolls as unloaded. ITEMS = roll tag IDs. Calls TAGGING_RFID_TO_UNLOAD, which is a placeholder (saves nothing yet)."
+      },
+      "response": [
+        {
+          "name": "Accepted",
+          "originalRequest": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"USER_ID\": \"1\",\n  \"ITEMS\": [\"E2806A960000402D1EB05D2F\", \"E2806A960000502D1EB05952\"]\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{baseUrl}}/unload", "host": ["{{baseUrl}}"], "path": ["unload"] }
+          },
+          "status": "OK",
+          "code": 200,
+          "_postman_previewlanguage": "json",
+          "header": [{ "key": "Content-Type", "value": "application/json" }],
+          "body": "{\n\"status\":\"SUCCESS\"\n,\"message\":\"2 item(s)\"\n}"
+        },
+        {
+          "name": "Missing USER_ID",
+          "originalRequest": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"USER_ID\": \"\",\n  \"ITEMS\": [\"E2806A960000402D1EB05D2F\"]\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{baseUrl}}/unload", "host": ["{{baseUrl}}"], "path": ["unload"] }
+          },
+          "status": "OK",
+          "code": 200,
+          "_postman_previewlanguage": "json",
+          "header": [{ "key": "Content-Type", "value": "application/json" }],
+          "body": "{\n\"status\":\"ERROR\"\n,\"message\":\"User ID not found\"\n}"
+        }
+      ]
     }
   ]
 }
