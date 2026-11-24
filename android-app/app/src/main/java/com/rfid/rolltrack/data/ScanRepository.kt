@@ -23,7 +23,9 @@ class ScanRepository(
     private val api: ErpApi,
     private val getUserId: () -> String,
     /** Device has a network connection. Checked before every submit. */
-    private val isOnline: () -> Boolean = { true }
+    private val isOnline: () -> Boolean = { true },
+    /** Records tags the ERP accepted for each requisition, so Tag Issue can enforce the balance. */
+    private val ledger: IssuedLedger? = null
 ) {
     private val json = Json { ignoreUnknownKeys = true }
     private val retryLock = Mutex()
@@ -124,6 +126,7 @@ class ScanRepository(
             }
             try {
                 val r = executeOp(op, getUserId(), p.txnId)
+                if (op is IssueOp && r.ok) ledger?.record(op.refId, op.itemCount, op.tags)
                 db.itemDao().byTxn(p.txnId).forEach { db.itemDao().delete(it.id) }
                 db.pendingDao().delete(p.txnId)
                 ApiLog.info("pending ${p.txnId} sent: ${r.message}")
@@ -195,6 +198,11 @@ class ScanRepository(
             }
         }
         if (allItems.isEmpty()) acceptedCount = op.itemCount
+
+        if (op is IssueOp && acceptedCount > 0) {
+            val acceptedTags = allItems.filter { itemsMap[it.tagId]?.accepted != false }.map { it.tagId }
+            ledger?.record(op.refId, acceptedCount, acceptedTags)
+        }
 
         val kind = when {
             result.uncertain -> SubmitSummary.Kind.UNCERTAIN

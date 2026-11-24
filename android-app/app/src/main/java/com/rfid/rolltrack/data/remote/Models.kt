@@ -31,9 +31,20 @@ data class IssueRequest(
     val color: String = "",
     val required: Int = 0,
     val issued: Int = 0,
-    val balance: Int = 0
+    val balance: Int = 0,
+    /** Tags this device has already issued to the request (IssuedLedger); the ERP does not report it. */
+    val localIssued: Int = 0
 ) {
-    val effectiveBalance: Int get() = if (balance > 0) balance else (required - issued).coerceAtLeast(0)
+    /** Balance as the ERP states it. */
+    val serverBalance: Int get() = if (balance > 0) balance else (required - issued).coerceAtLeast(0)
+
+    /** Issued as shown: the higher of the ERP's count and this device's own record. */
+    val shownIssued: Int get() = maxOf(issued, localIssued)
+
+    /** What may still be issued: never more than the ERP balance, minus what this device already issued. */
+    val effectiveBalance: Int get() =
+        if (required > 0) minOf(serverBalance, (required - localIssued).coerceAtLeast(0))
+        else (serverBalance - localIssued).coerceAtLeast(0)
 }
 
 @Serializable

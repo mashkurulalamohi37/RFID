@@ -152,7 +152,7 @@ fun TagIssueScreen(
                             horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
                             CounterPill("Required", req.required, Palette.Navy)
-                            CounterPill("Issued", req.issued, Palette.Warn)
+                            CounterPill("Issued", req.shownIssued, Palette.Warn)
                             CounterPill("Balance", req.effectiveBalance, Palette.Ok)
                         }
 

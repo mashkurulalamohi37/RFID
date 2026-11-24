@@ -5,6 +5,7 @@ import com.rfid.rolltrack.AppContainer
 import com.rfid.rolltrack.data.IssueOp
 import com.rfid.rolltrack.data.SubmitSummary
 import com.rfid.rolltrack.data.local.SessionType
+import com.rfid.rolltrack.data.remote.IssueRequest
 import com.rfid.rolltrack.scanner.ScanEvent
 import com.rfid.rolltrack.scanner.ScanSource
 import com.rfid.rolltrack.scanner.TagIdNormalizer
@@ -87,14 +88,21 @@ class TagIssueViewModel(container: AppContainer) :
         }
 
         val existing = items.value.map { it.tagId }.toSet()
-        val fresh = unique.filter { it !in existing }
+        val alreadyIssued = container.issuedLedger.issuedTags(req.refId)
+        val issuedBefore = unique.filter { it in alreadyIssued }
+        val fresh = unique.filter { it !in existing && it !in alreadyIssued }
         if (fresh.isEmpty()) {
-            container.feedback.duplicate()
-            show(Banner.Tone.INFO, "Already scanned: ${unique.joinToString { TagIdNormalizer.short(it) }}")
+            if (issuedBefore.isNotEmpty()) {
+                container.feedback.error()
+                show(Banner.Tone.BAD, "Already issued to ${req.refCode}: ${issuedBefore.joinToString { TagIdNormalizer.short(it) }}")
+            } else {
+                container.feedback.duplicate()
+                show(Banner.Tone.INFO, "Already scanned: ${unique.joinToString { TagIdNormalizer.short(it) }}")
+            }
             return
         }
 
-        val remaining = req.effectiveBalance - items.value.size
+        val remaining = remainingFor(req)
         if (remaining <= 0) {
             show(Banner.Tone.BAD, "Balance reached (${req.effectiveBalance}). No more tags for this request.")
             container.feedback.error()
@@ -107,12 +115,16 @@ class TagIssueViewModel(container: AppContainer) :
             if (addTag(ScanEvent.Tag(tagId, source))) added++
         }
 
-        val skippedDup = unique.size - fresh.size
+        val skippedDup = unique.size - fresh.size - issuedBefore.size
         val overBalance = fresh.size - toAdd.size
         when {
             overBalance > 0 -> {
                 show(Banner.Tone.BAD, "Added $added. $overBalance more ignored: balance reached (${req.effectiveBalance}).")
                 container.feedback.error()
+            }
+            issuedBefore.isNotEmpty() -> {
+                show(Banner.Tone.WARN, "Added $added. ${issuedBefore.size} already issued to ${req.refCode}, skipped.")
+                container.feedback.warn()
             }
             skippedDup > 0 -> show(Banner.Tone.INFO, "Added $added, $skippedDup already scanned.")
             added > 1 -> show(Banner.Tone.OK, "Added $added roll tags.")
@@ -132,11 +144,16 @@ class TagIssueViewModel(container: AppContainer) :
         viewModelScope.launch {
             try {
                 val userId = container.settings.session.value.userId.ifBlank { "1" }
-                val req = container.api.lookupRequest(userId, code)
+                val req = withLedger(container.api.lookupRequest(userId, code))
                 saveHeader(IssueHeader(request = req, countOnly = false))
                 val sourceLabel = if (isRfid) "RFID Tag" else "Code"
-                show(Banner.Tone.OK, "Request loaded via $sourceLabel: ${req.refCode}")
-                container.feedback.tagAccepted()
+                if (req.effectiveBalance <= 0) {
+                    show(Banner.Tone.BAD, "${req.refCode}: balance is 0 (${req.shownIssued} of ${req.required} already issued). No more tags can be submitted.")
+                    container.feedback.error()
+                } else {
+                    show(Banner.Tone.OK, "Request loaded via $sourceLabel: ${req.refCode}. You can issue ${req.effectiveBalance} tags.")
+                    container.feedback.tagAccepted()
+                }
             } catch (e: Exception) {
                 show(Banner.Tone.BAD, e.message ?: "Failed to lookup request: $code")
                 container.feedback.error()
@@ -151,6 +168,8 @@ class TagIssueViewModel(container: AppContainer) :
      * always come from the ERP (never counted up on the device). A failed refresh keeps the old numbers.
      */
     override suspend fun afterSubmit(result: SubmitSummary) {
+        // Apply this device's issued record right away, even if the server refresh below fails.
+        header.value?.let { h -> h.request?.let { saveHeader(h.copy(request = withLedger(it))) } }
         if (result.kind != SubmitSummary.Kind.ALL_ACCEPTED &&
             result.kind != SubmitSummary.Kind.PARTIAL &&
             result.kind != SubmitSummary.Kind.UNCERTAIN
@@ -163,14 +182,34 @@ class TagIssueViewModel(container: AppContainer) :
         val req = current.request ?: return
         try {
             val userId = container.settings.session.value.userId.ifBlank { "1" }
-            val fresh = container.api.lookupRequest(userId, req.refCode)
-            saveHeader(current.copy(request = fresh))
+            val fresh = withLedger(container.api.lookupRequest(userId, req.refCode))
+            saveHeader((header.value ?: current).copy(request = fresh))
             com.rfid.rolltrack.data.remote.ApiLog.info(
-                "Tag Issue: refreshed ${fresh.refCode} required=${fresh.required} issued=${fresh.issued} balance=${fresh.effectiveBalance}"
+                "Tag Issue: refreshed ${fresh.refCode} required=${fresh.required} erpIssued=${fresh.issued} deviceIssued=${fresh.localIssued} balance=${fresh.effectiveBalance}"
             )
         } catch (e: Exception) {
+            // Keep the old ERP numbers, but still apply this device's issued record.
+            header.value?.let { h -> h.request?.let { saveHeader(h.copy(request = withLedger(it))) } }
             com.rfid.rolltrack.data.remote.ApiLog.warn("Tag Issue: could not refresh request counts: ${e.message}")
         }
+    }
+
+    /** Adds what this device has already issued to the request, since the ERP does not report it. */
+    private fun withLedger(req: IssueRequest): IssueRequest =
+        req.copy(localIssued = container.issuedLedger.issued(req.refId))
+
+    /** Tags that may still be added: balance minus tags on screen that are not yet accepted (scanned, failed, queued). */
+    private fun remainingFor(req: IssueRequest): Int = req.effectiveBalance - items.value.size
+
+    /** Blocks a submit that would go over the balance, and says how many to remove. */
+    private fun withinBalance(req: IssueRequest, count: Int, alreadyOnScreen: Int): Boolean {
+        val allowed = req.effectiveBalance - alreadyOnScreen
+        if (count <= allowed) return true
+        val msg = if (allowed <= 0) "Balance reached (${req.effectiveBalance}). No more tags can be submitted for ${req.refCode}."
+        else "Only $allowed tags can be submitted for ${req.refCode}. Remove ${count - allowed}."
+        show(Banner.Tone.BAD, msg)
+        container.feedback.error()
+        return false
     }
 
     fun setCountOnly(enabled: Boolean) {
@@ -194,6 +233,9 @@ class TagIssueViewModel(container: AppContainer) :
             container.feedback.warn()
             return
         }
+        // Queued (offline) tags on screen are not accepted yet, so they still use up balance.
+        val queuedOnScreen = items.value.size - currentSendable.size
+        if (!withinBalance(req, currentSendable.size, queuedOnScreen)) return
 
         val op = IssueOp(
             refId = req.refId,
@@ -212,11 +254,7 @@ class TagIssueViewModel(container: AppContainer) :
             container.feedback.warn()
             return
         }
-        if (count > req.effectiveBalance) {
-            show(Banner.Tone.BAD, "Only ${req.effectiveBalance} tags remain for this request")
-            container.feedback.error()
-            return
-        }
+        if (!withinBalance(req, count, items.value.size)) return
 
         val op = IssueOp(
             refId = req.refId,
