@@ -63,7 +63,7 @@ fun HomeScreen(
 
     val tiles = listOf(
         HomeTile("1", "Tag Issue", "Scan request RFID, issue tags", "issue", Palette.Blue),
-        HomeTile("2", "Production", "Tag rolls + enter weight", "production", Palette.Ok),
+        HomeTile("2", "Record weight", "Scan one roll, enter its weight", "production", Palette.Ok),
         HomeTile("4", "Loading", "Load rolls onto vehicle", "loading", Color(0xFF8D6E63)),
         HomeTile("5", "Unloading", "Receive vehicle at gate", "unloading", Palette.Sky),
         HomeTile("7", "Store Delivery", "Rolls into tubes for store", "delivery", Color(0xFF7E57C2)),
@@ -244,7 +244,7 @@ private fun RfidWorkflowsCard() {
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 RfidBullet(number = "1", text = "Tag issue – RFID scan will be done")
-                RfidBullet(number = "2", text = "Production – RFID scan will be done")
+                RfidBullet(number = "2", text = "Record weight – scan one roll, enter its weight")
                 RfidBullet(number = "3", text = "Loading and Unloading – RFID scan will be done")
             }
         }

@@ -68,6 +68,19 @@ class MainActivity : ComponentActivity(), NfcAdapter.ReaderCallback {
         nfcAdapter?.disableReaderMode(this)
     }
 
+    /**
+     * Security: leaving the app (Home, switching apps, closing it, screen off) signs the user out, so the
+     * next person sees the sign-in page. Not on rotation, and not for the camera permission prompt (that only pauses).
+     * Unsent scans stay saved and come back when the same user signs in again.
+     */
+    override fun onStop() {
+        super.onStop()
+        if (!isChangingConfigurations && container.settings.session.value.isLoggedIn) {
+            com.rfid.rolltrack.data.remote.ApiLog.info("App left (closed / background / screen off): signing out")
+            container.settings.clearSession()
+        }
+    }
+
     override fun onTagDiscovered(tag: Tag?) {
         if (tag == null) return
         com.rfid.rolltrack.data.remote.ApiLog.info("scan raw (NFC): techs=${tag.techList.joinToString { it.substringAfterLast('.') }}")

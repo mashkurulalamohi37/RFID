@@ -1,6 +1,7 @@
 package com.rfid.rolltrack.ui
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -25,6 +26,19 @@ fun RollTrackNavHost(
     val navController = rememberNavController()
     val startDestination = if (container.settings.session.value.isLoggedIn) "home" else "login"
 
+    // Signed out from anywhere (Log out, or leaving the app): go to the sign-in page and clear every screen behind it.
+    LaunchedEffect(container.settings) {
+        container.settings.session.collect { session ->
+            val current = navController.currentDestination?.route
+            if (!session.isLoggedIn && current != null && current != "login") {
+                navController.navigate("login") {
+                    popUpTo(navController.graph.id) { inclusive = true }
+                    launchSingleTop = true
+                }
+            }
+        }
+    }
+
     NavHost(
         navController = navController,
         startDestination = startDestination
@@ -45,9 +59,7 @@ fun RollTrackNavHost(
                 container = container,
                 onOpen = { route -> navController.navigate(route) },
                 onLoggedOut = {
-                    navController.navigate("login") {
-                        popUpTo("home") { inclusive = true }
-                    }
+                    // The sign-out watcher above opens the sign-in page.
                 }
             )
         }

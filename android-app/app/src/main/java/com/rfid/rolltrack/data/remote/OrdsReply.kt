@@ -162,6 +162,14 @@ object OrdsReply {
         throw ApiException(code = code, message = msg, httpCode = res.code, raw = res.body)
     }
 
-    private fun snippet(body: String): String =
-        body.replace(Regex("<[^>]*>"), " ").replace(Regex("\\s+"), " ").trim().take(160).ifBlank { "(empty body)" }
+    private fun snippet(body: String): String {
+        // ORDS error pages (e.g. HTTP 555) carry the real Oracle error inside: show that, not the page's CSS.
+        val ora = Regex("ORA-\\d{5}:[^\\\\\"<\\n]*").findAll(body).map { it.value.trim() }.distinct().toList()
+        if (ora.isNotEmpty()) {
+            val main = ora.firstOrNull { !it.startsWith("ORA-06550") } ?: ora.first()
+            return (listOf(main) + ora.filter { it != main && it.startsWith("ORA-06550") }.take(1)).joinToString(" / ")
+        }
+        val text = body.replace(Regex("(?is)<(style|script)[^>]*>.*?</\\1>"), " ")
+        return text.replace(Regex("<[^>]*>"), " ").replace(Regex("\\s+"), " ").trim().take(160).ifBlank { "(empty body)" }
+    }
 }

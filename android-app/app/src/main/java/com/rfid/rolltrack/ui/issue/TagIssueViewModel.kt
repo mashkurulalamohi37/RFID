@@ -88,13 +88,15 @@ class TagIssueViewModel(container: AppContainer) :
         }
 
         val existing = items.value.map { it.tagId }.toSet()
-        val alreadyIssued = container.issuedLedger.issuedTags(req.refId)
-        val issuedBefore = unique.filter { it in alreadyIssued }
+        // A tag stays taken until it is unloaded; then it starts fresh and can be issued to a new lot.
+        val alreadyIssued = container.issuedLedger.issuedAnywhere()
+        val issuedBefore = unique.filter { it in alreadyIssued && it !in existing }
         val fresh = unique.filter { it !in existing && it !in alreadyIssued }
         if (fresh.isEmpty()) {
             if (issuedBefore.isNotEmpty()) {
                 container.feedback.error()
-                show(Banner.Tone.BAD, "Already issued to ${req.refCode}: ${issuedBefore.joinToString { TagIdNormalizer.short(it) }}")
+                val where = if (issuedBefore.all { alreadyIssued[it] == req.refId }) "to ${req.refCode}" else "to another request"
+                show(Banner.Tone.BAD, "Already issued $where and not unloaded yet: ${issuedBefore.joinToString { TagIdNormalizer.short(it) }}")
             } else {
                 container.feedback.duplicate()
                 show(Banner.Tone.INFO, "Already scanned: ${unique.joinToString { TagIdNormalizer.short(it) }}")
@@ -104,7 +106,7 @@ class TagIssueViewModel(container: AppContainer) :
 
         val remaining = remainingFor(req)
         if (remaining <= 0) {
-            show(Banner.Tone.BAD, "Balance reached (${req.effectiveBalance}). No more tags for this request.")
+            show(Banner.Tone.BAD, "Limit reached: ${limitReason(req)}. No more tags can be scanned.")
             container.feedback.error()
             return
         }
@@ -117,13 +119,15 @@ class TagIssueViewModel(container: AppContainer) :
 
         val skippedDup = unique.size - fresh.size - issuedBefore.size
         val overBalance = fresh.size - toAdd.size
+        val full = added > 0 && items.value.size >= limitFor(req)
         when {
+            full && overBalance == 0 -> show(Banner.Tone.OK, "All ${limitFor(req)} tags scanned. Tap Submit.")
             overBalance > 0 -> {
-                show(Banner.Tone.BAD, "Added $added. $overBalance more ignored: balance reached (${req.effectiveBalance}).")
+                show(Banner.Tone.BAD, "Added $added. $overBalance more ignored: ${limitReason(req)}.")
                 container.feedback.error()
             }
             issuedBefore.isNotEmpty() -> {
-                show(Banner.Tone.WARN, "Added $added. ${issuedBefore.size} already issued to ${req.refCode}, skipped.")
+                show(Banner.Tone.WARN, "Added $added. ${issuedBefore.size} skipped: already issued and not unloaded yet.")
                 container.feedback.warn()
             }
             skippedDup > 0 -> show(Banner.Tone.INFO, "Added $added, $skippedDup already scanned.")
@@ -151,7 +155,9 @@ class TagIssueViewModel(container: AppContainer) :
                     show(Banner.Tone.BAD, "${req.refCode}: balance is 0 (${req.shownIssued} of ${req.required} already issued). No more tags can be submitted.")
                     container.feedback.error()
                 } else {
-                    show(Banner.Tone.OK, "Request loaded via $sourceLabel: ${req.refCode}. You can issue ${req.effectiveBalance} tags.")
+                    val now = minOf(req.effectiveBalance, MAX_PER_SESSION)
+                    show(Banner.Tone.OK, "Request loaded via $sourceLabel: ${req.refCode}. You can issue $now tags" +
+                        if (req.effectiveBalance > MAX_PER_SESSION) " now (max $MAX_PER_SESSION per session)." else ".")
                     container.feedback.tagAccepted()
                 }
             } catch (e: Exception) {
@@ -169,7 +175,19 @@ class TagIssueViewModel(container: AppContainer) :
      */
     override suspend fun afterSubmit(result: SubmitSummary) {
         // Apply this device's issued record right away, even if the server refresh below fails.
-        header.value?.let { h -> h.request?.let { saveHeader(h.copy(request = withLedger(it))) } }
+        header.value?.let { h ->
+            h.request?.let { saveHeader(h.copy(request = withLedger(it), sessionAccepted = h.sessionAccepted + result.accepted)) }
+        }
+
+        // Everything accepted: tagging for this requisition is done. Clear the screen, ready for the next one.
+        if (result.kind == SubmitSummary.Kind.ALL_ACCEPTED) {
+            val req = header.value?.request
+            val doneMsg = "Submitted ${result.accepted} tag(s)" + (req?.let { " to ${it.refCode} (balance now ${it.effectiveBalance})" } ?: "") +
+                ". Ready for the next requisition."
+            startNew { show(Banner.Tone.OK, doneMsg) }
+            return
+        }
+
         if (result.kind != SubmitSummary.Kind.ALL_ACCEPTED &&
             result.kind != SubmitSummary.Kind.PARTIAL &&
             result.kind != SubmitSummary.Kind.UNCERTAIN
@@ -195,21 +213,64 @@ class TagIssueViewModel(container: AppContainer) :
     }
 
     /** Adds what this device has already issued to the request, since the ERP does not report it. */
-    private fun withLedger(req: IssueRequest): IssueRequest =
-        req.copy(localIssued = container.issuedLedger.issued(req.refId))
+    private fun withLedger(req: IssueRequest): IssueRequest {
+        // Rule: every requisition takes exactly 10 tags. The server's NO_OF_ITEMS (now the number of item
+        // lines, e.g. 1) is not the tag count, so it is logged but not used for the balance.
+        // The server's issued/balance count items on a different scale (e.g. 50 items, 20 issued), so they would
+        // wrongly use up the 10 tags. Only tags issued from this PDA (IssuedLedger) reduce the 10.
+        if (req.required != TAGS_PER_REQUISITION || req.balance != 0 || req.issued != 0) {
+            com.rfid.rolltrack.data.remote.ApiLog.info(
+                "Tag Issue: ${req.refCode} server NO_OF_ITEMS=${req.required} issued=${req.issued} balance=${req.balance}; using $TAGS_PER_REQUISITION tags per requisition"
+            )
+        }
+        return req.copy(
+            required = TAGS_PER_REQUISITION,
+            issued = 0,
+            balance = 0,
+            localIssued = container.issuedLedger.issued(req.refId)
+        )
+    }
 
-    /** Tags that may still be added: balance minus tags on screen that are not yet accepted (scanned, failed, queued). */
-    private fun remainingFor(req: IssueRequest): Int = req.effectiveBalance - items.value.size
+    /** Tags already accepted while this requisition is open (counts toward the 10-per-session cap). */
+    private val sessionAccepted: Int get() = header.value?.sessionAccepted ?: 0
 
-    /** Blocks a submit that would go over the balance, and says how many to remove. */
+    /** The most this session may still take: the balance, but never more than [MAX_PER_SESSION] in one session. */
+    private fun limitFor(req: IssueRequest): Int =
+        minOf(req.effectiveBalance, (MAX_PER_SESSION - sessionAccepted).coerceAtLeast(0))
+
+    /** Says which limit stopped the operator: the requisition's balance or the 10-per-session cap. */
+    private fun limitReason(req: IssueRequest): String =
+        if (req.effectiveBalance <= MAX_PER_SESSION - sessionAccepted) "balance reached (${req.effectiveBalance})"
+        else "maximum $MAX_PER_SESSION tags per session"
+
+    /** Tags that may still be added: the limit minus tags on screen that are not yet accepted (scanned, failed, queued). */
+    private fun remainingFor(req: IssueRequest): Int = limitFor(req) - items.value.size
+
+    /** How many tags this requisition must be submitted with right now: exactly its balance (max 10). 0 = none. */
+    fun exactTarget(): Int = header.value?.request?.let { limitFor(it) } ?: 0
+
+    /**
+     * Rule: a requisition is submitted with EXACTLY its balance, never more or less.
+     * Blocks the submit otherwise and says how many to add or remove.
+     */
     private fun withinBalance(req: IssueRequest, count: Int, alreadyOnScreen: Int): Boolean {
-        val allowed = req.effectiveBalance - alreadyOnScreen
-        if (count <= allowed) return true
-        val msg = if (allowed <= 0) "Balance reached (${req.effectiveBalance}). No more tags can be submitted for ${req.refCode}."
-        else "Only $allowed tags can be submitted for ${req.refCode}. Remove ${count - allowed}."
+        val needed = limitFor(req) - alreadyOnScreen
+        if (count == needed && needed > 0) return true
+        val msg = when {
+            needed <= 0 -> "Limit reached: ${limitReason(req)}. No more tags can be submitted for ${req.refCode}."
+            count < needed -> "Exactly $needed tags are needed for ${req.refCode}. Scan ${needed - count} more."
+            else -> "Exactly $needed tags are needed for ${req.refCode}. Remove ${count - needed}."
+        }
         show(Banner.Tone.BAD, msg)
         container.feedback.error()
         return false
+    }
+
+    private companion object {
+        /** Requirement: at most 10 tags can be validated in one session, whatever the server's balance says. */
+        const val MAX_PER_SESSION = 10
+        /** Rule: each requisition gets 10 tags in total, never more. */
+        const val TAGS_PER_REQUISITION = 10
     }
 
     fun setCountOnly(enabled: Boolean) {

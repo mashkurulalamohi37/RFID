@@ -21,6 +21,10 @@ import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.json.Json
 
@@ -81,12 +85,18 @@ abstract class ScanSessionViewModel<H>(
             } + " session=${_sessionId.value}"
         )
         viewModelScope.launch {
-            when (event) {
-                is ScanEvent.Tag -> onTag(event)
-                is ScanEvent.Code -> onCode(event)
+            // One scan at a time: a reader burst arrives as many events a few ms apart. Handled together, each
+            // would count the list before the others were saved, and limits (e.g. 10 per requisition) would leak.
+            scanLock.withLock {
+                when (event) {
+                    is ScanEvent.Tag -> onTag(event)
+                    is ScanEvent.Code -> onCode(event)
+                }
             }
         }
     }
+
+    private val scanLock = Mutex()
 
     open suspend fun onTag(event: ScanEvent.Tag) {
         addTag(event)
@@ -112,6 +122,8 @@ abstract class ScanSessionViewModel<H>(
             weightKg = weightKg
         )
         repo.addItem(entity)
+        // Wait until the list shows the new row, so the next scan counts it (limits stay exact).
+        withTimeoutOrNull(2000) { items.first { list -> list.any { it.tagId == event.tagId } } }
         container.feedback.tagAccepted()
         onTagAdded(event.tagId)
         return true
@@ -165,7 +177,7 @@ abstract class ScanSessionViewModel<H>(
         _summary.value = null
     }
 
-    fun startNew() {
+    fun startNew(then: (() -> Unit)? = null) {
         val sId = _sessionId.value ?: return
         viewModelScope.launch {
             repo.closeSession(sId)
@@ -175,6 +187,7 @@ abstract class ScanSessionViewModel<H>(
             _header.value = emptyHeader()
             _summary.value = null
             _banner.value = null
+            then?.invoke()
         }
     }
 }

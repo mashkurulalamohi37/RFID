@@ -18,6 +18,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FilterChip
@@ -62,6 +63,7 @@ fun TagIssueScreen(
 
     var showTypeDialog by rememberSaveable { mutableStateOf(false) }
     var showConfirmNew by rememberSaveable { mutableStateOf(false) }
+    var showCameraScan by rememberSaveable { mutableStateOf(false) }
     var countInput by rememberSaveable { mutableStateOf("") }
 
     val req = header?.request
@@ -98,12 +100,21 @@ fun TagIssueScreen(
                         )
                         Spacer(Modifier.height(4.dp))
                         Text(
-                            "Scan the request QR with the PDA scanner, or type the request number. " +
+                            "Scan the requisition barcode / QR, or type the requisition number. " +
                                 "Then hold the left trigger to read the roll tags.",
                             fontSize = 13.sp,
                             color = Palette.Muted
                         )
                         Spacer(Modifier.height(14.dp))
+                        Button(
+                            onClick = { showCameraScan = true },
+                            enabled = !busy,
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = ButtonDefaults.buttonColors(containerColor = Palette.Navy)
+                        ) {
+                            Text("Scan barcode / QR")
+                        }
+                        Spacer(Modifier.height(8.dp))
                         OutlinedButton(
                             onClick = { showTypeDialog = true },
                             modifier = Modifier.fillMaxWidth()
@@ -188,7 +199,7 @@ fun TagIssueScreen(
                             OutlinedTextField(
                                 value = countInput,
                                 onValueChange = { countInput = it.filter { c -> c.isDigit() } },
-                                label = { Text("Enter tag count to issue") },
+                                label = { Text(if (vm.exactTarget() > 0) "Tag count (must be ${vm.exactTarget()})" else "Tag count") },
                                 modifier = Modifier.fillMaxWidth()
                             )
                         }
@@ -243,11 +254,13 @@ fun TagIssueScreen(
             if (req != null) {
                 val isCountOnly = header?.countOnly == true
                 val submitCount = if (isCountOnly) countInput.toIntOrNull() ?: 0 else items.size
+                // Exactly the balance (max 10) must be submitted: the button shows progress and unlocks at the target.
+                val target = vm.exactTarget()
                 ScanBottomBar(
                     leftText = "New request",
                     onLeftClick = { showConfirmNew = true },
-                    submitText = "Submit $submitCount tags",
-                    submitEnabled = submitCount > 0 && !busy,
+                    submitText = if (target > 0) "Submit $submitCount / $target tags" else "Balance 0",
+                    submitEnabled = target > 0 && submitCount == target && !busy,
                     onSubmitClick = {
                         if (isCountOnly) {
                             vm.submitCount(submitCount)
@@ -291,6 +304,17 @@ fun TagIssueScreen(
                     Text("Cancel")
                 }
             }
+        )
+    }
+
+    if (showCameraScan) {
+        com.rfid.rolltrack.ui.components.BarcodeScanDialog(
+            title = "Scan requisition barcode / QR",
+            onResult = { code ->
+                showCameraScan = false
+                vm.loadRequest(code.trim())
+            },
+            onDismiss = { showCameraScan = false }
         )
     }
 

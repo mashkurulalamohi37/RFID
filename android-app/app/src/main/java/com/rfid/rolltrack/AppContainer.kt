@@ -54,13 +54,15 @@ class AppContainer(val context: Context) {
     val network = NetworkMonitor(context)
 
     val issuedLedger = com.rfid.rolltrack.data.IssuedLedger(context)
+    val weighedLedger = com.rfid.rolltrack.data.WeighedLedger(context)
 
     val scanRepository = ScanRepository(
         db = database,
         api = api,
         getUserId = { settings.session.value.userId },
         isOnline = { network.online.value && !cachedSettings.simulateOffline },
-        ledger = issuedLedger
+        ledger = issuedLedger,
+        weighed = weighedLedger
     )
 
     val serverHealth = ServerHealth(

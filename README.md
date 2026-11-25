@@ -108,7 +108,7 @@ The app unifies three distinct hardware scanning channels through a centralized 
 Tested and aligned with the factory's Postman collection (`PDA.postman_collection.json`):
 
 - **Base URL**: `http://118.179.223.40:7007/ords/`
-- **Authentication**: `POST snym_erp/api/pda-login` with UTF-8 URL-encoded credentials (handles `#` in passwords like `sumon##1031`).
+- **Authentication**: `POST snym_erp/api/pda-login` with UTF-8 URL-encoded credentials (handles passwords that contain `#`).
 - **Reference Lookups**: Slashes in codes (e.g. `BPKWL-13/IR25060017`) are properly escaped.
 - **Sub-Contract Issue**: Transacts under `xact_erp/api/sub-contract-issue` schema with client transaction idempotency tokens (`CLIENT_TXN_ID`).
 - **Network Security**: Configured in `network_security_config.xml` to allow cleartext HTTP traffic to the factory's private IP (`118.179.223.40:7007`).

@@ -43,7 +43,7 @@ Configured and integrated specifically for the factory's target industrial termi
 
 All queries and payloads strictly match the factory's production Oracle ORDS service:
 - **Base URL**: `http://118.179.223.40:7007/ords/`
-- **Authentication**: `snym_erp/api/pda-login` with URL-safe credential encoding (handles passwords with `#` like `sumon##1031`).
+- **Authentication**: `snym_erp/api/pda-login` with URL-safe credential encoding (handles passwords that contain `#`).
 - **Requisition Scan**: `snym_erp/api/req-scan` with URL-encoded reference codes (e.g. `BPKWL-13/IR25060017`).
 - **Sub-Contract Issue**: `xact_erp/api/sub-contract-issue` under `xact_erp` schema with batch JSON payload.
 - **Roll Weights**: `snym_erp/api/ref-weight` saving individual or batch roll weights.

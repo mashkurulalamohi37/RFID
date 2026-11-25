@@ -80,6 +80,16 @@ class UnloadingViewModel(container: AppContainer) :
         submit(op)
     }
 
+    /** Once unloading is accepted, the repository clears those tags' data on the device (issue + weight). */
+    override suspend fun afterSubmit(result: com.rfid.rolltrack.data.SubmitSummary) {
+        if (result.accepted <= 0) return
+        if (result.kind == com.rfid.rolltrack.data.SubmitSummary.Kind.QUEUED) return
+        val cleared = repo.lastUnloadCleared
+        if (cleared > 0) {
+            show(Banner.Tone.OK, "Unloaded. $cleared tag(s) cleared on this PDA and ready to be tagged for a new lot.")
+        }
+    }
+
     fun finishVehicle() {
         startNew()
     }

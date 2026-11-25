@@ -6,5 +6,7 @@ import kotlinx.serialization.Serializable
 @Serializable
 data class IssueHeader(
     val request: IssueRequest? = null,
-    val countOnly: Boolean = false
+    val countOnly: Boolean = false,
+    /** Tags the server accepted while this requisition was open (max 10 per session). */
+    val sessionAccepted: Int = 0
 )

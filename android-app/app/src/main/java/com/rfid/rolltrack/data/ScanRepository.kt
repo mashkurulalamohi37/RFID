@@ -25,10 +25,49 @@ class ScanRepository(
     /** Device has a network connection. Checked before every submit. */
     private val isOnline: () -> Boolean = { true },
     /** Records tags the ERP accepted for each requisition, so Tag Issue can enforce the balance. */
-    private val ledger: IssuedLedger? = null
+    private val ledger: IssuedLedger? = null,
+    /** Records roll weights the ERP accepted (Record weight screen). */
+    private val weighed: WeighedLedger? = null
 ) {
     private val json = Json { ignoreUnknownKeys = true }
     private val retryLock = Mutex()
+
+    /** Result of the last Unloading batch that cleared tag data: how many tags start fresh. */
+    @Volatile var lastUnloadCleared: Int = 0
+        private set
+
+    /**
+     * Keeps the device's tag records in step with what the server accepted:
+     * Tag Issue counts, roll weights, and, after Unloading, clears the tags' data so they can be reused.
+     */
+    private fun recordAccepted(op: SubmitOp, acceptedCount: Int, acceptedTags: List<String>) {
+        when (op) {
+            is IssueOp -> if (acceptedCount > 0) ledger?.record(op.refId, acceptedCount, acceptedTags)
+            is WeightOp -> op.items.filter { it.item in acceptedTags }.forEach { weighed?.record(it.item, it.weight) }
+            is UnloadOp -> {
+                val issued = ledger?.forgetTags(acceptedTags) ?: 0
+                val weights = weighed?.forget(acceptedTags) ?: 0
+                lastUnloadCleared = acceptedTags.size
+                ApiLog.info("Unloading: ${acceptedTags.size} tags start fresh (issue entries removed $issued, weights removed $weights)")
+            }
+            else -> {}
+        }
+    }
+
+    /** Tags the server did not refuse: rows of the batch, or the op's own tag list when it has no rows. */
+    private fun acceptedTagsOf(op: SubmitOp, result: BulkResult, rowTags: List<String>): List<String> {
+        val refused = result.items.filter { !it.accepted }.map { it.tagId }.toSet()
+        val all = rowTags.ifEmpty {
+            when (op) {
+                is IssueOp -> op.tags
+                is WeightOp -> op.items.map { it.item }
+                is LoadOp -> op.tags
+                is UnloadOp -> op.tags
+                is DeliveryOp -> op.tags
+            }
+        }
+        return all.filter { it !in refused }
+    }
 
     suspend fun openSession(type: SessionType, userId: String): ScanSessionEntity {
         // Recover rows stuck from an earlier run (app killed mid-send, or batch dropped from the queue).
@@ -126,7 +165,10 @@ class ScanRepository(
             }
             try {
                 val r = executeOp(op, getUserId(), p.txnId)
-                if (op is IssueOp && r.ok) ledger?.record(op.refId, op.itemCount, op.tags)
+                if (r.ok) {
+                    val accepted = acceptedTagsOf(op, r, emptyList())
+                    recordAccepted(op, if (op is IssueOp && op.countOnly) op.count else accepted.size, accepted)
+                }
                 db.itemDao().byTxn(p.txnId).forEach { db.itemDao().delete(it.id) }
                 db.pendingDao().delete(p.txnId)
                 ApiLog.info("pending ${p.txnId} sent: ${r.message}")
@@ -199,9 +241,9 @@ class ScanRepository(
         }
         if (allItems.isEmpty()) acceptedCount = op.itemCount
 
-        if (op is IssueOp && acceptedCount > 0) {
-            val acceptedTags = allItems.filter { itemsMap[it.tagId]?.accepted != false }.map { it.tagId }
-            ledger?.record(op.refId, acceptedCount, acceptedTags)
+        if (acceptedCount > 0) {
+            val acceptedTags = acceptedTagsOf(op, result, allItems.map { it.tagId })
+            recordAccepted(op, acceptedCount, acceptedTags)
         }
 
         val kind = when {

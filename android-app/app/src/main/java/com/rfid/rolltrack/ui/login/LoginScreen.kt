@@ -27,6 +27,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -52,8 +53,13 @@ fun LoginScreen(
 ) {
     val settings by container.settings.settings.collectAsStateWithLifecycle(com.rfid.rolltrack.config.AppSettings())
 
-    var username by rememberSaveable { mutableStateOf("Sumon") }
-    var password by rememberSaveable { mutableStateOf("sumon##1031") }
+    // Security: never pre-filled, and wiped whenever the app is left, so both are typed every time.
+    var username by remember { mutableStateOf("") }
+    var password by remember { mutableStateOf("") }
+    androidx.lifecycle.compose.LifecycleEventEffect(androidx.lifecycle.Lifecycle.Event.ON_STOP) {
+        username = ""
+        password = ""
+    }
     var errorMsg by rememberSaveable { mutableStateOf<String?>(null) }
     var busy by rememberSaveable { mutableStateOf(false) }
     var showServerSettings by rememberSaveable { mutableStateOf(false) }
